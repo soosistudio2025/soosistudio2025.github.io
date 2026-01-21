@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <meta name="format-detection" content="telephone=no">
+
+    <title>宿洗寵物 Soosi Pet | 預約暨契約系統</title>
+    
+    <link rel="icon" type="image/png" href="logo.png">
+    <meta name="theme-color" content="#6A8D73"> <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        soosi: {
+                            green: '#6A8D73',      // LOGO 下方的綠色地墊/店面牆色
+                            wood: '#8E6E53',       // 像 LOGO 字體與店內木作的顏色
+                            dark: '#3F3F3F',       // LOGO 線條的深灰色
+                            light: '#F9F7F2',      // 米白/紙張色 (背景)
+                            accent: '#E6C66D'      // LOGO 左上角的星星金黃色
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Zen Maru Gothic"', '"Noto Sans TC"', 'sans-serif'], // 建議圓體
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest" defer></script>
+
+    <style>
+        :root {
+            /* 宿洗配色變數 */
+            --brand-primary: #6A8D73;  /* 綠色 */
+            --brand-secondary: #8E6E53; /* 木色 */
+            --brand-bg: #F9F7F2;       /* 米色背景 */
+            --brand-text: #3F3F3F;     /* 深灰字 */
+            --brand-accent: #E6C66D;   /* 金色 */
+        }
+
+        body {
+            font-family: 'Zen Maru Gothic', 'Noto Sans TC', sans-serif;
+            background-color: var(--brand-bg);
+            color: var(--brand-text);
+            /* 加入一點點噪點質感，模擬店面牆壁/紙張質感 */
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E");
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Glass Card - 調整為較溫潤的霧面玻璃 */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 
+                0 4px 6px -1px rgba(106, 141, 115, 0.05), 
+                0 10px 15px -3px rgba(106, 141, 115, 0.1);
+            border-radius: 2rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .section-highlight { border-bottom: 4px solid var(--brand-primary); }
+
+        /* 按鈕樣式重塑 */
+        .soosi-btn {
+            background-color: var(--brand-primary);
+            color: white;
+            border-radius: 1rem;
+            transition: all 0.2s;
+        }
+        .soosi-btn:hover {
+            background-color: #56755D; /* Darker Green */
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(106, 141, 115, 0.3);
+        }
+
+        /* 輸入框樣式 */
+        .cute-input {
+            background: #ffffff;
+            border: 2px solid #EBE9E4;
+            border-radius: 1rem;
+            color: var(--brand-text);
+            transition: all 0.3s;
+        }
+        .cute-input:focus {
+            border-color: var(--brand-primary);
+            box-shadow: 0 0 0 4px rgba(106, 141, 115, 0.15);
+            outline: none;
+        }
+
+        /* 裝飾性背景圓型 */
+        .bg-blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            z-index: -1;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        
+        // Icon Component
+        const Icon = ({ name, size = 20, className = "" }) => {
+            const iconRef = useRef(null);
+            useEffect(() => {
+                if (typeof window.lucide !== 'undefined' && iconRef.current) {
+                    window.lucide.createIcons({
+                        root: iconRef.current,
+                        attrs: { "stroke-width": 2.5, class: className },
+                        name: name
+                    });
+                }
+            }, [name, className]);
+            return <span ref={iconRef} className="inline-flex items-center justify-center"><i data-lucide={name} style={{ width: size, height: size }}></i></span>;
+        };
+
+        // --- 主程式 ---
+        const App = () => {
+            const [view, setView] = useState('entry'); // entry | client
+            const [isBoarding, setIsBoarding] = useState(false);
+
+            // 模擬首頁入口設計 (重點修改部分)
+            if (view === 'entry') {
+                return (
+                    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden">
+                        
+                        {/* 背景氛圍裝飾 (呼應 LOGO 配色) */}
+                        <div className="bg-blob w-96 h-96 bg-soosi-green/20 top-[-10%] left-[-10%]"></div>
+                        <div className="bg-blob w-80 h-80 bg-soosi-wood/10 bottom-[-10%] right-[-10%]"></div>
+                        <div className="bg-blob w-40 h-40 bg-soosi-accent/30 top-[20%] right-[10%] animate-pulse"></div>
+
+                        {/* 主要內容區 */}
+                        <div className="w-full max-w-lg mx-auto relative z-10 flex flex-col items-center">
+                            
+                            {/* LOGO 區域 */}
+                            <div className="mb-10 relative group cursor-default">
+                                <div className="absolute inset-0 bg-white/40 rounded-full blur-2xl transform scale-110"></div>
+                                {/* 這裡請放新的 LOGO 圖片 */}
+                                <img src="logo.png" alt="宿洗 Soosi Pet" className="w-56 md:w-64 h-auto relative z-10 drop-shadow-sm transform group-hover:scale-105 transition-transform duration-500" />
+                                
+                                {/* 裝飾性小標籤 */}
+                                <div className="absolute -right-4 -top-2 bg-soosi-accent text-soosi-dark text-xs font-black px-3 py-1 rounded-full rotate-12 shadow-sm">
+                                    特寵業字第 S1140030號
+
+                                </div>
+                            </div>
+
+                            {/* 標題與 Slogan */}
+                            <div className="text-center mb-10 space-y-2">
+                                <h1 className="text-2xl font-black text-soosi-dark tracking-wide">
+                                    宿洗寵物 <span className="text-soosi-green">Soosi Pet</span>
+                                </h1>
+                                <p className="text-soosi-wood font-medium text-sm tracking-widest">
+                                    美容 | 旅館 | 安親 | 選品
+                                </p>
+                            </div>
+                            
+                            {/* 雙按鈕選擇區 (Glass Card Style) */}
+                            <div className="grid grid-cols-1 w-full gap-5">
+                                
+                                {/* 美容服務按鈕 */}
+                                <button 
+                                    onClick={() => { setIsBoarding(false); setView('client'); }}
+                                    className="glass-card p-6 flex items-center gap-5 group hover:bg-white/90 active:scale-[0.98] border-l-8 border-soosi-green transition-all relative overflow-hidden"
+                                >
+                                    <div className="absolute right-0 top-0 opacity-10 transform translate-x-1/4 -translate-y-1/4">
+                                        <Icon name="scissors" size={120} className="text-soosi-green" />
+                                    </div>
+                                    
+                                    <div className="w-16 h-16 rounded-2xl bg-soosi-green/10 flex items-center justify-center text-soosi-green group-hover:bg-soosi-green group-hover:text-white transition-colors shadow-sm z-10">
+                                        <Icon name="scissors" size={32} />
+                                    </div>
+                                    <div className="text-left z-10">
+                                        <h3 className="text-xl font-black text-soosi-dark mb-1">預約美容 / 安親</h3>
+                                        <p className="text-xs text-gray-500 font-medium">Grooming Service</p>
+                                        <div className="mt-2 text-soosi-green text-xs font-bold flex items-center gap-1 opacity-0 group-hover:opacity-100 transform translate-x-[-10px] group-hover:translate-x-0 transition-all">
+                                            前往填寫 <Icon name="arrow-right" size={14} />
+                                        </div>
+                                    </div>
+                                </button>
+
+                                {/* 住宿服務按鈕 */}
+                                <button 
+                                    onClick={() => { setIsBoarding(true); setView('client'); }}
+                                    className="glass-card p-6 flex items-center gap-5 group hover:bg-white/90 active:scale-[0.98] border-l-8 border-soosi-wood transition-all relative overflow-hidden"
+                                >
+                                    <div className="absolute right-0 top-0 opacity-10 transform translate-x-1/4 -translate-y-1/4">
+                                        <Icon name="home" size={120} className="text-soosi-wood" />
+                                    </div>
+
+                                    <div className="w-16 h-16 rounded-2xl bg-soosi-wood/10 flex items-center justify-center text-soosi-wood group-hover:bg-soosi-wood group-hover:text-white transition-colors shadow-sm z-10">
+                                        <Icon name="home" size={32} />
+                                    </div>
+                                    <div className="text-left z-10">
+                                        <h3 className="text-xl font-black text-soosi-dark mb-1">預約住宿 / 旅館</h3>
+                                        <p className="text-xs text-gray-500 font-medium">Pet Boarding</p>
+                                        <div className="mt-2 text-soosi-wood text-xs font-bold flex items-center gap-1 opacity-0 group-hover:opacity-100 transform translate-x-[-10px] group-hover:translate-x-0 transition-all">
+                                            前往填寫 <Icon name="arrow-right" size={14} />
+                                        </div>
+                                    </div>
+                                </button>
+
+                            </div>
+
+                            {/* 底部資訊 */}
+                            <footer className="mt-12 text-center space-y-4">
+                                <div className="flex items-center justify-center gap-4 text-soosi-wood/60">
+                                    <a href="#" className="hover:text-soosi-green transition-colors"><Icon name="instagram" size={20}/></a>
+                                    <a href="#" className="hover:text-soosi-green transition-colors"><Icon name="facebook" size={20}/></a>
+                                    <a href="#" className="hover:text-soosi-green transition-colors"><Icon name="map-pin" size={20}/></a>
+                                </div>
+                                <p className="text-[10px] text-gray-400 font-medium tracking-wider">
+                                    &copy; 2026 Soosi Pet. All Rights Reserved.
+                                </p>
+                            </footer>
+                        </div>
+                    </div>
+                );
+            }
+
+            // --- 以下是原本的表單頁面 (僅做視覺 Style 微調，功能保持不變) ---
+            return (
+                <div className="min-h-screen pb-32">
+                    {/* 導航列 */}
+                    <nav className="fixed top-0 w-full z-40 bg-white/80 backdrop-blur-xl border-b border-soosi-green/10 shadow-sm">
+                        <div className="px-6 py-4 flex justify-between items-center max-w-3xl mx-auto">
+                            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('entry')}>
+                                <img src="logo.png" alt="Logo" className="w-8 h-8 object-contain" />
+                                <div className="font-black text-lg text-soosi-dark tracking-wide">宿洗 Soosi</div>
+                            </div>
+                            <button onClick={() => setView('entry')} className="text-xs font-bold text-soosi-wood hover:bg-soosi-wood/10 px-3 py-1.5 rounded-full transition-colors flex items-center gap-1">
+                                <Icon name="arrow-left" size={14}/> 返回
+                            </button>
+                        </div>
+                    </nav>
+
+                    <main className="pt-28 px-4 max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        
+                        {/* 標題區 */}
+                        <div className="text-center space-y-2 pb-2">
+                            <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${isBoarding ? 'bg-soosi-wood/10 text-soosi-wood' : 'bg-soosi-green/10 text-soosi-green'}`}>
+                                {isBoarding ? "Hotel & Boarding" : "Grooming & Spa"}
+                            </div>
+                            <h2 className="text-3xl font-black text-soosi-dark tracking-tight">
+                                {isBoarding ? "住宿預約與契約" : "美容服務資料表"}
+                            </h2>
+                            <p className="text-xs text-gray-400">請填寫以下資訊以完成預約手續</p>
+                        </div>
+
+                        {/* 這是預覽版，僅展示風格 */}
+                        <div className="glass-card p-8 text-center space-y-6 border-t-4 border-soosi-green">
+                            <div className="w-16 h-16 mx-auto bg-soosi-green/10 rounded-full flex items-center justify-center text-soosi-green mb-4">
+                                <Icon name="file-text" size={32} />
+                            </div>
+                            <h3 className="text-xl font-bold text-soosi-dark">表單預覽模式</h3>
+                            <p className="text-sm text-gray-500 leading-relaxed">
+                                這是一個前端視覺預覽版 (Frontend Preview)。<br/>
+                                實際系統將包含完整的：<br/>
+                                飼主資料填寫、寵物病史調查、數位簽名、LINE 通知串接等功能。<br/>
+                                (功能邏輯將延續上一版系統)
+                            </p>
+                            
+                            <div className="grid gap-4 text-left mt-8">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold text-soosi-wood ml-1">飼主姓名 Demo</label>
+                                    <input type="text" className="w-full cute-input px-4 py-3" placeholder="請輸入姓名" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold text-soosi-wood ml-1">寵物名稱 Demo</label>
+                                    <input type="text" className="w-full cute-input px-4 py-3" placeholder="例如：皮皮" />
+                                </div>
+                                <button className="w-full py-4 bg-soosi-green text-white rounded-xl font-bold shadow-lg hover:bg-[#56755D] transition-colors flex items-center justify-center gap-2 mt-4">
+                                    <Icon name="check" size={20} /> 提交測試
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* 示意圖區塊：呼應店面照片 */}
+                        <div className="rounded-3xl overflow-hidden relative h-48 md:h-64 group">
+                             <img src="line_oa_chat_260121_193314.jpg" className="w-full h-full object-cover object-center transform group-hover:scale-105 transition-transform duration-700" alt="Store" />
+                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-6">
+                                 <div className="text-white">
+                                     <h4 className="font-bold text-lg mb-1">實體門市</h4>
+                                     <p className="text-xs opacity-80">打造像家一樣溫暖的寵物空間</p>
+                                 </div>
+                             </div>
+                        </div>
+
+                    </main>
+                </div>
+            );
+        };
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
