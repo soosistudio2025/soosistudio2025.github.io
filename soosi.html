@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <meta name="format-detection" content="telephone=no">
+
+    <title>宿洗寵物 Soosi Pet | 預約暨契約系統</title>
+    
+    <link rel="icon" type="image/png" href="logo.png">
+    <meta name="theme-color" content="#6A8D73"> 
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        soosi: {
+                            green: '#6A8D73',      // 主色：綠色
+                            wood: '#8E6E53',       // 副色：木頭色
+                            dark: '#3F3F3F',       // 文字：深灰
+                            light: '#F9F7F2',      // 背景：米白
+                            accent: '#E6C66D',     // 點綴：金黃
+                            red: '#D67D7D'         // 警示：柔和紅
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Zen Maru Gothic"', '"Noto Sans TC"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest" defer></script>
+
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+
+<style>
+        :root {
+            --brand-primary: #6A8D73;
+            --brand-secondary: #8E6E53;
+            --brand-bg: #F9F7F2;
+            --brand-text: #3F3F3F;
+        }
+
+        body {
+            font-family: 'Zen Maru Gothic', 'Noto Sans TC', sans-serif;
+            background-color: var(--brand-bg);
+            color: var(--brand-text);
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E");
+            -webkit-font-smoothing: antialiased;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* 首頁 Glass Card */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 8px 32px 0 rgba(106, 141, 115, 0.1);
+            border-radius: 2rem;
+            transition: all 0.3s ease;
+        }
+
+        /* 內頁 Cute Card */
+        .cute-card {
+            background: #FFFDF9;
+            border: 2px solid #F0ECE6;
+            border-radius: 1.5rem;
+            box-shadow: 3px 3px 0px 0px rgba(142, 110, 83, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dashed-divider {
+            border-bottom: 2px dashed #EBE9E4;
+            margin: 1.5rem 0;
+        }
+
+        /* 輸入框 */
+        .cute-input {
+            background: #ffffff;
+            border: 2px solid #EBE9E4;
+            border-radius: 1rem;
+            color: var(--brand-text);
+            transition: all 0.3s;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+        }
+        .cute-input:focus {
+            border-color: var(--brand-primary);
+            box-shadow: 0 0 0 4px rgba(106, 141, 115, 0.15);
+            outline: none;
+            transform: translateY(-1px);
+        }
+        .cute-input.input-error {
+            border-color: #D67D7D;
+            background-color: #FFF5F5;
+        }
+
+        /* 按鈕樣式 Pill */
+        .pill-button {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 2px solid transparent;
+        }
+        .pill-button.active {
+            background-color: var(--brand-primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(106, 141, 115, 0.3);
+            border-color: var(--brand-primary);
+        }
+        .pill-button.inactive {
+            background-color: white;
+            color: #8E6E53;
+            border-color: #EBE9E4;
+        }
+        .pill-button.inactive:hover {
+            border-color: var(--brand-primary);
+            color: var(--brand-primary);
+        }
+
+        /* 簽名板全螢幕 */
+        .fullscreen-signature {
+            position: fixed;
+            inset: 0;
+            z-index: 200;
+            touch-action: none;
+            background-color: #F9F7F2;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .bg-blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            z-index: -1;
+            opacity: 0.6;
+        }
+
+        .field-error {
+            color: #D67D7D;
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-top: 0.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        
+        /* LINE 圖片修正 */
+        .line-img-fix {
+            object-fit: contain;
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+
+<script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+        
+        const Icon = ({ name, size = 20, className = "" }) => {
+            const iconRef = useRef(null);
+            useEffect(() => {
+                if (typeof window.lucide !== 'undefined' && iconRef.current) {
+                    window.lucide.createIcons({
+                        root: iconRef.current,
+                        attrs: { "stroke-width": 2.5, class: className },
+                        name: name
+                    });
+                }
+            }, [name, className]);
+            return <span ref={iconRef} className="inline-flex items-center justify-center"><i data-lucide={name} style={{ width: size, height: size }}></i></span>;
+        };
+
+// Modal Component (強制閱讀到底)
+        const TermsModal = ({ isOpen, onClose, title, children, onAgree }) => {
+            const contentRef = useRef(null);
+            const [canAgree, setCanAgree] = useState(false);
+
+            useEffect(() => {
+                if (isOpen) {
+                    setCanAgree(false);
+                    document.body.style.overflow = 'hidden';
+                    // 內容少的時候直接允許
+                    setTimeout(() => {
+                        if (contentRef.current && contentRef.current.scrollHeight <= contentRef.current.clientHeight + 50) setCanAgree(true);
+                    }, 500);
+                } else {
+                    document.body.style.overflow = '';
+                }
+            }, [isOpen]);
+
+            const handleScroll = (e) => {
+                const { scrollTop, scrollHeight, clientHeight } = e.target;
+                if (scrollHeight - scrollTop - clientHeight < 50) setCanAgree(true);
+            };
+
+            if (!isOpen) return null;
+
+            return (
+                <div className="fixed inset-0 z-[150] bg-soosi-dark/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+                    <div className="w-full max-w-lg bg-white sm:rounded-3xl rounded-t-3xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-10">
+                        <div className="px-6 py-4 bg-soosi-green text-white flex justify-between items-center shrink-0">
+                            <h3 className="text-lg font-black tracking-wider flex items-center gap-2"><Icon name="file-text" size={18}/> {title}</h3>
+                            <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors"><Icon name="x" size={20} /></button>
+                        </div>
+                        <div ref={contentRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-6 text-sm leading-relaxed text-soosi-dark space-y-4 bg-[#F9F7F2]">
+                            {children}
+                            <div className="h-10"></div>
+                        </div>
+                        <div className="p-5 bg-white border-t-2 border-dashed border-gray-100 shrink-0">
+                            {!canAgree && <div className="text-center text-xs font-bold text-soosi-red mb-3 animate-pulse">👇 請滑動卷軸至最底部以啟用按鈕</div>}
+                            <button onClick={() => { if(canAgree) { onAgree && onAgree(); onClose(); }}} disabled={!canAgree}
+                                className={`w-full py-4 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all ${canAgree ? 'bg-soosi-wood text-white shadow-lg hover:bg-[#7A5E47]' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>
+                                <Icon name={canAgree ? "check-circle" : "lock"} size={20} />
+                                {canAgree ? "我已詳閱並同意" : "請閱讀完畢"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [view, setView] = useState('entry'); 
+            const [isBoarding, setIsBoarding] = useState(false);
+            const [isSubmitting, setIsSubmitting] = useState(false);
+            const [errors, setErrors] = useState({});
+            const [lineConfirmed, setLineConfirmed] = useState(false);
+            
+            // Signature State
+            const [showFullSig, setShowFullSig] = useState(false);
+            const [realtimeSig, setRealtimeSig] = useState(null);
+            const sigCanvasRef = useRef(null);
+            const padInstance = useRef(null);
+
+            // Terms State
+const [activeModal, setActiveModal] = useState(null);
+            const [termsRead, setTermsRead] = useState({ 
+                grooming: false, 
+                boarding: false, 
+                highRiskGrooming: false, 
+                highRiskBoarding: false 
+            });
+
+            const [formData, setFormData] = useState({
+                email: '', owner_name: '', phone: '', owner_id: '', address: '',
+                emergency_name: '', emergency_phone: '',
+                pet_name: '', breed: '', weight: '', 
+                age: '', age_months: '', is_under_one: false,
+                sex: '', fix: '', 
+                social_aggression: '', social_play: '', // 拆分社交欄位
+                grooming_temperament: '',
+                chip_status: '', chip_id: '', preferred_clinic: '',
+                medical_status: '', medical_history: [], medical_history_other: '',
+                service_type: '', service_type_other: '', legal_agree: false
+            });
+
+            // Routing
+            useEffect(() => {
+                const handleHashChange = () => {
+                    const hash = window.location.hash;
+                    if (hash === '#grooming') {
+                        setView('form'); setIsBoarding(false); window.scrollTo(0, 0);
+                    } else if (hash === '#boarding') {
+                        setView('form'); setIsBoarding(true); window.scrollTo(0, 0);
+                    } else {
+                        setView('entry');
+                        if(window.location.hash) history.replaceState(null, null, ' ');
+                    }
+                };
+                handleHashChange(); 
+                window.addEventListener('hashchange', handleHashChange);
+                return () => window.removeEventListener('hashchange', handleHashChange);
+            }, []);
+
+            const goHome = () => { window.location.hash = ''; };
+            const goGrooming = () => { window.location.hash = 'grooming'; };
+            const goBoarding = () => { window.location.hash = 'boarding'; };
+
+            // Logic Helpers
+            const actualAge = useMemo(() => {
+                if (formData.is_under_one && formData.age_months) return parseFloat(formData.age_months) / 12;
+                return parseFloat(formData.age) || 0;
+            }, [formData.age, formData.age_months, formData.is_under_one]);
+
+            // 高風險判定：年齡 OR 有病史
+            const isHighRisk = useMemo(() => {
+                const ageRisk = actualAge >= 8 || (actualAge > 0 && actualAge < 0.42);
+                const medicalRisk = formData.medical_status === '有';
+                return ageRisk || medicalRisk;
+            }, [actualAge, formData.medical_status]);
+
+            const riskType = useMemo(() => {
+                if (formData.medical_status === '有') return 'medical';
+                if (actualAge >= 8) return 'senior';
+                if (actualAge > 0 && actualAge < 0.42) return 'puppy';
+                return null;
+            }, [actualAge, formData.medical_status]);
+            
+// 條款完成檢查 (邏輯更新：住宿需同時完成4項，美容需完成2項)
+            const allTermsRead = useMemo(() => {
+                // 1. 基礎美容條款 (所有人必讀)
+                if (!termsRead.grooming) return false;
+                
+                // 2. 住宿條款 (住宿客必讀)
+                if (isBoarding && !termsRead.boarding) return false;
+                
+                // 3. 高風險判定
+                if (isHighRisk) {
+                    // 高風險美容 (高風險必讀)
+                    if (!termsRead.highRiskGrooming) return false;
+                    
+                    // 高風險住宿 (住宿 + 高風險必讀)
+                    if (isBoarding && !termsRead.highRiskBoarding) return false;
+                }
+                
+                return true;
+            }, [isBoarding, isHighRisk, termsRead]);
+
+            const handleChange = (field, value) => {
+                setFormData(prev => ({ ...prev, [field]: value }));
+                if (errors[field]) setErrors(prev => ({ ...prev, [field]: null }));
+            };
+
+            const toggleArray = (field, value) => {
+                setFormData(prev => {
+                    const arr = prev[field] || [];
+                    const newArr = arr.includes(value) ? arr.filter(i => i !== value) : [...arr, value];
+                    return { ...prev, [field]: newArr };
+                });
+            };
+
+            // 簽名板初始化 (修復 Canvas 大小問題)
+            useEffect(() => {
+                if (showFullSig && sigCanvasRef.current) {
+                    // 使用 setTimeout 確保 DOM 渲染完成
+                    setTimeout(() => {
+                        const canvas = sigCanvasRef.current;
+                        if(canvas) {
+                             const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                             canvas.width = canvas.offsetWidth * ratio;
+                             canvas.height = canvas.offsetHeight * ratio;
+                             const ctx = canvas.getContext("2d");
+                             ctx.scale(ratio, ratio);
+                             // 確保筆跡清楚
+                             padInstance.current = new window.SignaturePad(canvas, { 
+                                 minWidth: 2, 
+                                 maxWidth: 4, 
+                                 penColor: "#3F3F3F",
+                                 backgroundColor: 'rgba(0,0,0,0)'
+                             });
+                        }
+                    }, 100);
+                }
+            }, [showFullSig]);
+
+            const handleSubmit = () => {
+                const newErrors = {};
+                const required = ['email', 'owner_name', 'phone', 'address', 'emergency_name', 'emergency_phone', 'pet_name', 'breed', 'weight', 'sex', 'fix', 'grooming_temperament', 'chip_status', 'medical_status', 'social_aggression', 'social_play'];
+                
+                required.forEach(f => { if(!formData[f]) newErrors[f] = '此欄位為必填'; });
+                if(formData.chip_status === '有晶片' && !formData.chip_id) newErrors.chip_status = '請輸入晶片號碼';
+                
+if(!lineConfirmed) newErrors.line = '請確認已加入 LINE';
+if(!allTermsRead) newErrors.signature = '請先完成上方所有契約條款閱讀';
+if(!realtimeSig) newErrors.signature = '請完成簽名';
+                
+                if (Object.keys(newErrors).length > 0) {
+                    setErrors(newErrors);
+                    const firstError = Object.keys(newErrors)[0];
+                    const el = document.getElementById(firstError);
+                    if(el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    else alert("請檢查必填欄位");
+                    return;
+                }
+                setIsSubmitting(true);
+                // 模擬送出
+                setTimeout(() => { alert("提交成功！"); setIsSubmitting(false); window.location.reload(); }, 1500);
+            };
+
+            const PillBtn = ({ active, onClick, children, className = "" }) => (
+                <button type="button" onClick={onClick} 
+                    className={`pill-button flex-1 py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 ${active ? 'active' : 'inactive'} ${className}`}>
+                    {children}
+                </button>
+            );
+
+            const InputGroup = ({ label, error, id, children, required = false }) => (
+                <div className="space-y-1.5" id={id}>
+                    <label className="text-sm font-bold text-soosi-wood ml-1 flex items-center gap-1">
+                        {required && <span className="text-soosi-red text-xs">●</span>}
+                        {label}
+                    </label>
+                    {children}
+                    {error && <div className="field-error"><Icon name="alert-circle" size={12}/>{error}</div>}
+                </div>
+            );
+
+            // --- 1. 首頁 View ---
+            if (view === 'entry') {
+                return (
+                    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden">
+                        <div className="bg-blob w-96 h-96 bg-soosi-green/20 top-[-10%] left-[-10%]"></div>
+                        <div className="bg-blob w-80 h-80 bg-soosi-wood/10 bottom-[-10%] right-[-10%]"></div>
+
+                        <div className="w-full max-w-lg mx-auto relative z-10 flex flex-col items-center">
+                            <div className="mb-10 relative group cursor-default">
+                                <div className="absolute inset-0 bg-white/40 rounded-full blur-2xl transform scale-110"></div>
+                                <img src="logo.png" alt="宿洗 Soosi Pet" className="w-56 md:w-64 h-auto relative z-10 drop-shadow-sm transform group-hover:scale-105 transition-transform duration-500" />
+                                <div className="absolute -right-4 -top-2 bg-soosi-accent text-soosi-dark text-xs font-black px-3 py-1 rounded-full rotate-12 shadow-sm">特寵業字第 S1140030號</div>
+                            </div>
+                            <div className="text-center mb-10 space-y-2">
+                                <h1 className="text-2xl font-black text-soosi-dark tracking-wide">宿洗寵物 <span className="text-soosi-green">Soosi Pet</span></h1>
+                                <p className="text-soosi-wood font-medium text-sm tracking-widest">美容 | 旅館 | 安親 | 選品</p>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 w-full gap-5">
+                                <button onClick={goGrooming} 
+                                    className="glass-card p-6 flex items-center gap-5 group hover:bg-white/90 active:scale-[0.98] border-l-8 border-soosi-green transition-all relative overflow-hidden">
+                                    <div className="absolute right-0 top-0 opacity-10 transform translate-x-1/4 -translate-y-1/4"><Icon name="scissors" size={120} className="text-soosi-green"/></div>
+                                    <div className="w-16 h-16 rounded-2xl bg-soosi-green/10 flex items-center justify-center text-soosi-green group-hover:bg-soosi-green group-hover:text-white transition-colors shadow-sm z-10">
+                                        <Icon name="scissors" size={32} />
+                                    </div>
+                                    <div className="text-left flex-1 z-10">
+                                        <h3 className="text-xl font-black text-soosi-dark mb-1">美容安親</h3>
+                                        <p className="text-xs text-gray-500 font-medium">Grooming Service</p>
+                                    </div>
+                                    <div className="text-soosi-green z-10"><Icon name="arrow-right" /></div>
+                                </button>
+
+                                <button onClick={goBoarding} 
+                                    className="glass-card p-6 flex items-center gap-5 group hover:bg-white/90 active:scale-[0.98] border-l-8 border-soosi-wood transition-all relative overflow-hidden">
+                                    <div className="absolute right-0 top-0 opacity-10 transform translate-x-1/4 -translate-y-1/4"><Icon name="home" size={120} className="text-soosi-wood"/></div>
+                                    <div className="w-16 h-16 rounded-2xl bg-soosi-wood/10 flex items-center justify-center text-soosi-wood group-hover:bg-soosi-wood group-hover:text-white transition-colors shadow-sm z-10">
+                                        <Icon name="home" size={32} />
+                                    </div>
+                                    <div className="text-left flex-1 z-10">
+                                        <h3 className="text-xl font-black text-soosi-dark mb-1">寵物住宿</h3>
+                                        <p className="text-xs text-gray-500 font-medium">Pet Boarding</p>
+                                    </div>
+                                    <div className="text-soosi-wood z-10"><Icon name="arrow-right" /></div>
+                                </button>
+                            </div>
+
+                            <footer className="mt-12 text-center space-y-5">
+                                <div className="flex items-center justify-center gap-8 text-soosi-wood/70">
+                                    <a href="https://www.instagram.com/soosi.studio/" target="_blank" className="hover:text-soosi-green hover:scale-110 transition-all flex flex-col items-center gap-1">
+                                        <Icon name="instagram" size={24}/>
+                                        <span className="text-[10px] font-bold">Instagram</span>
+                                    </a>
+                                    <a href="https://www.facebook.com/soosistudio/?rdid=4JTN13dweC8vLijB" target="_blank" className="hover:text-soosi-green hover:scale-110 transition-all flex flex-col items-center gap-1">
+                                        <Icon name="facebook" size={24}/>
+                                        <span className="text-[10px] font-bold">Facebook</span>
+                                    </a>
+                                    <a href="http://lin.ee/nfGjHryU" target="_blank" className="hover:text-soosi-green hover:scale-110 transition-all flex flex-col items-center gap-1">
+                                        <img src="line.png" className="w-6 h-6 grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all line-img-fix"/>
+                                        <span className="text-[10px] font-bold">LINE</span>
+                                    </a>
+                                </div>
+                                <div>
+                                    <a href="https://maps.app.goo.gl/Y2sQnyWPW5Dysezg6" target="_blank" 
+                                       className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/50 border border-white/60 hover:bg-white/80 transition-all text-soosi-wood text-xs font-bold shadow-sm backdrop-blur-sm">
+                                        <Icon name="map-pin" size={14} className="text-soosi-red" />
+                                        台中市清水區新興路142-1號
+                                    </a>
+                                </div>
+                                <p className="text-[10px] text-gray-400 font-medium tracking-wider">
+                                    © 2026 Soosi Pet. All Rights Reserved.
+                                </p>
+                            </footer>
+                        </div>
+                    </div>
+                );
+            }
+
+            // --- 2. 表單 View ---
+            return (
+                <div className="min-h-screen pb-32">
+                    {/* Nav: Logo 放大 */}
+                    <nav className="fixed top-0 w-full z-40 bg-white/90 backdrop-blur-xl border-b border-soosi-green/10 shadow-sm transition-all">
+                        <div className="px-6 py-3 flex justify-between items-center max-w-3xl mx-auto">
+                            <div className="flex items-center gap-3 cursor-pointer" onClick={goHome}>
+                                <img src="nav.png" alt="Logo" className="w-12 h-12 object-contain" />
+                                <div className="font-black text-lg text-soosi-dark tracking-wide">宿洗 Soosi</div>
+                            </div>
+                            <button onClick={goHome} className="text-xs font-bold text-soosi-wood hover:bg-soosi-wood/10 px-3 py-1.5 rounded-full transition-colors flex items-center gap-1">
+                                <Icon name="arrow-left" size={14}/> 返回首頁
+                            </button>
+                        </div>
+                    </nav>
+
+                    <main className="pt-28 px-4 max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="text-center space-y-2 pb-2">
+                            <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${isBoarding ? 'bg-soosi-wood/10 text-soosi-wood' : 'bg-soosi-green/10 text-soosi-green'}`}>
+                                {isBoarding ? "Hotel Service" : "Grooming Service"}
+                            </div>
+                            <h2 className="text-3xl font-black text-soosi-dark tracking-tight">
+                                {isBoarding ? "住宿服務資料填寫" : "美容服務資料填寫"}
+                            </h2>
+                        </div>
+
+                        {/* LINE Section (重設計) */}
+                        <div className="cute-card p-6 space-y-4" id="line">
+                            <div className="text-center space-y-1">
+                                <div className="inline-block bg-[#06C755] text-white px-3 py-0.5 rounded-full text-[10px] font-black shadow-sm mb-1">STEP 1</div>
+                                <h3 className="text-lg font-black text-soosi-wood flex items-center justify-center gap-2">
+                                    加入官方 LINE
+                                </h3>
+                                <p className="text-xs text-gray-400 font-bold">ID: @610ijdjr</p>
+                            </div>
+                            
+                            <div className="bg-white border-2 border-dashed border-gray-200 rounded-2xl p-4 flex flex-col md:flex-row items-center gap-4">
+<div className="flex-1 w-full">
+                                    <a href="http://lin.ee/nfGjHryU" target="_blank" className="w-full bg-[#06C755]/5 border border-[#06C755]/20 hover:bg-[#06C755]/10 text-[#06C755] rounded-xl p-3 flex items-center justify-center gap-2 transition-all active:scale-95">
+                                        <img src="line.png" className="w-6 h-6 line-img-fix" /> 
+                                        <span className="font-bold">1. 點擊加入好友</span>
+                                    </a>
+                                
+                                </div>
+                                <div className="hidden md:block text-gray-300 font-black"><Icon name="arrow-right" size={24}/></div>
+                                <div className="flex-1 w-full bg-red-50 text-soosi-red border border-red-100 rounded-xl p-3 flex items-center justify-center gap-2">
+                                    <Icon name="message-circle" size={18}/>
+                                    <span className="font-bold">2. 務必傳送貼圖</span>
+                                </div>
+                            </div>
+                            
+                            <label className={`w-full flex items-center justify-center gap-3 p-4 rounded-xl border-2 transition-all cursor-pointer select-none ${lineConfirmed ? 'bg-[#06C755]/10 border-[#06C755] text-[#06C755]' : 'bg-white border-gray-200 text-gray-400 hover:border-[#06C755]/50'}`}>
+                                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${lineConfirmed ? 'bg-[#06C755] border-[#06C755]' : 'border-gray-300'}`}>
+                                    {lineConfirmed && <Icon name="check" size={12} className="text-white"/>}
+                                </div>
+                                <input type="checkbox" className="hidden" checked={lineConfirmed} onChange={()=>setLineConfirmed(!lineConfirmed)}/>
+                                <span className="font-bold text-sm">我已完成加入好友並傳送貼圖</span>
+                            </label>
+                            {errors.line && <div className="field-error justify-center"><Icon name="alert-circle" size={12}/>{errors.line}</div>}
+                        </div>
+
+                        {/* Owner Info */}
+                        <section className="cute-card p-8 space-y-6">
+                            <div className="flex items-center gap-3 border-b-2 border-dashed border-soosi-wood/10 pb-4">
+                                <span className="text-2xl">👤</span>
+                                <h3 className="text-lg font-black text-soosi-dark">飼主基本資料</h3>
+                            </div>
+                            <div className="grid md:grid-cols-2 gap-5">
+                                <InputGroup label="電子郵件" required error={errors.email} id="email">
+                                    <input type="email" value={formData.email} onChange={e=>handleChange('email', e.target.value)} className={`w-full cute-input px-4 py-3 ${errors.email ? 'input-error' : ''}`} placeholder="寄送契約副本用" />
+                                </InputGroup>
+                                <InputGroup label="主人姓名" required error={errors.owner_name} id="owner_name">
+                                    <input type="text" value={formData.owner_name} onChange={e=>handleChange('owner_name', e.target.value)} className={`w-full cute-input px-4 py-3 ${errors.owner_name ? 'input-error' : ''}`} placeholder="請輸入全名" />
+                                </InputGroup>
+                                <InputGroup label="連絡電話" required error={errors.phone} id="phone">
+                                    <div className="flex gap-2">
+                                        <input type="tel" value={formData.phone} onChange={e=>handleChange('phone', e.target.value)} className={`w-full cute-input px-4 py-3 flex-1 ${errors.phone ? 'input-error' : ''}`} placeholder="0912345678" />
+                                        <button className="px-4 bg-soosi-wood text-white rounded-xl font-bold text-sm shadow-md hover:bg-[#7a5e47] flex items-center gap-1 whitespace-nowrap"><Icon name="search" size={14}/> 舊客</button>
+                                    </div>
+                                </InputGroup>
+                                <InputGroup label="身分證字號 " required error={errors.id}  id="owner_id">
+                                    <input type="text" value={formData.owner_id} onChange={e=>handleChange('owner_id', e.target.value)} className="w-full cute-input px-4 py-3" placeholder="例如: A123456789" />
+                                </InputGroup>
+                                <div className="md:col-span-2">
+                                    <InputGroup label="通訊地址" required error={errors.address} id="address">
+                                        <input type="text" value={formData.address} onChange={e=>handleChange('address', e.target.value)} className={`w-full cute-input px-4 py-3 ${errors.address ? 'input-error' : ''}`} placeholder="請輸入完整地址" />
+                                    </InputGroup>
+                                </div>
+                                <div className="md:col-span-2 dashed-divider"></div>
+                                <InputGroup label="緊急聯絡人姓名" required error={errors.emergency_name} id="emergency_name">
+                                    <input type="text" value={formData.emergency_name} onChange={e=>handleChange('emergency_name', e.target.value)} className={`w-full cute-input px-4 py-3 border-red-100 bg-red-50/20 ${errors.emergency_name ? 'input-error' : ''}`} />
+                                </InputGroup>
+                                <InputGroup label="緊急連絡電話" required error={errors.emergency_phone} id="emergency_phone">
+                                    <input type="tel" value={formData.emergency_phone} onChange={e=>handleChange('emergency_phone', e.target.value)} className={`w-full cute-input px-4 py-3 border-red-100 bg-red-50/20 ${errors.emergency_phone ? 'input-error' : ''}`} />
+                                </InputGroup>
+                            </div>
+                        </section>
+
+                        {/* Pet Info */}
+                        <section className="cute-card p-8 space-y-6">
+                            <div className="flex items-center gap-3 border-b-2 border-dashed border-soosi-wood/10 pb-4">
+                                <span className="text-2xl">🐾</span>
+                                <h3 className="text-lg font-black text-soosi-dark">寵物詳細資料</h3>
+                            </div>
+                            <div className="grid md:grid-cols-2 gap-5">
+                                <InputGroup label="寵物名字" required error={errors.pet_name} id="pet_name">
+                                    <input type="text" value={formData.pet_name} onChange={e=>handleChange('pet_name', e.target.value)} className={`w-full cute-input px-4 py-3 ${errors.pet_name ? 'input-error' : ''}`} />
+                                </InputGroup>
+                                <InputGroup label="品種" required error={errors.breed} id="breed">
+                                    <input type="text" value={formData.breed} onChange={e=>handleChange('breed', e.target.value)} className={`w-full cute-input px-4 py-3 ${errors.breed ? 'input-error' : ''}`} />
+                                </InputGroup>
+                                <InputGroup label="體重 (kg)" required error={errors.weight} id="weight">
+                                    <input type="number" step="0.1" value={formData.weight} onChange={e=>handleChange('weight', e.target.value)} className={`w-full cute-input px-4 py-3 ${errors.weight ? 'input-error' : ''}`} />
+                                </InputGroup>
+                                
+                                {/* 修改年齡邏輯：切換時清空另一邊的數值 */}
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold text-soosi-wood ml-1 flex items-center gap-1"><span className="text-soosi-red text-xs">●</span> 年齡</label>
+                                    <div className="flex gap-2">
+                                        <PillBtn active={!formData.is_under_one} onClick={()=>setFormData(p=>({...p, is_under_one:false, age_months:''}))}>一歲以上</PillBtn>
+                                        <PillBtn active={formData.is_under_one} onClick={()=>setFormData(p=>({...p, is_under_one:true, age:''}))}>一歲以下</PillBtn>
+                                    </div>
+                                    {formData.is_under_one ? (
+                                        <select value={formData.age_months} onChange={e=>handleChange('age_months', e.target.value)} className="w-full cute-input px-4 py-3">
+                                            <option value="">請選擇月齡</option>
+                                            {[1,2,3,4,5,6,7,8,9,10,11].map(m=><option key={m} value={m}>{m} 個月</option>)}
+                                        </select>
+                                    ) : (
+                                        <input type="number" placeholder="請輸入年齡 (歲)" value={formData.age} onChange={e=>handleChange('age', e.target.value)} className="w-full cute-input px-4 py-3" />
+                                    )}
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold text-soosi-wood ml-1 flex items-center gap-1"><span className="text-soosi-red text-xs">●</span> 性別</label>
+                                    <div className="flex gap-2">
+                                        <PillBtn active={formData.sex === '公'} onClick={()=>handleChange('sex', '公')}>公</PillBtn>
+                                        <PillBtn active={formData.sex === '母'} onClick={()=>handleChange('sex', '母')}>母</PillBtn>
+                                    </div>
+                                    {errors.sex && <div className="field-error"><Icon name="alert-circle" size={12}/>{errors.sex}</div>}
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold text-soosi-wood ml-1 flex items-center gap-1"><span className="text-soosi-red text-xs">●</span> 結紮</label>
+                                    <div className="flex gap-2">
+                                        <PillBtn active={formData.fix === '是'} onClick={()=>handleChange('fix', '是')}>是</PillBtn>
+                                        <PillBtn active={formData.fix === '否'} onClick={()=>handleChange('fix', '否')}>否</PillBtn>
+                                    </div>
+                                    {errors.fix && <div className="field-error"><Icon name="alert-circle" size={12}/>{errors.fix}</div>}
+                                </div>
+
+                                {/* 社交狀況：改為二選一的兩組題目 */}
+                                <div className="md:col-span-2 space-y-4" id="social_aggression">
+                                    <label className="text-sm font-bold text-soosi-wood ml-1 flex items-center gap-1"><span className="text-soosi-red text-xs">●</span> 攻擊性</label>
+                                    <div className="flex gap-3">
+                                        <PillBtn active={formData.social_aggression === '有攻擊性'} onClick={()=>handleChange('social_aggression', '有攻擊性')}>有攻擊性</PillBtn>
+                                        <PillBtn active={formData.social_aggression === '無攻擊性'} onClick={()=>handleChange('social_aggression', '無攻擊性')}>無攻擊性</PillBtn>
+                                    </div>
+                                    {errors.social_aggression && <div className="field-error"><Icon name="alert-circle" size={12}/>{errors.social_aggression}</div>}
+                                </div>
+
+                                <div className="md:col-span-2 space-y-4" id="social_play">
+                                    <label className="text-sm font-bold text-soosi-wood ml-1 flex items-center gap-1"><span className="text-soosi-red text-xs">●</span> 與狗相處</label>
+                                    <div className="flex gap-3">
+                                        <PillBtn active={formData.social_play === '可與狗玩'} onClick={()=>handleChange('social_play', '可與狗玩')}>可與狗朋友玩</PillBtn>
+                                        <PillBtn active={formData.social_play === '不可與狗玩'} onClick={()=>handleChange('social_play', '不可與狗玩')}>不能與狗朋友玩</PillBtn>
+                                    </div>
+                                    {errors.social_play && <div className="field-error"><Icon name="alert-circle" size={12}/>{errors.social_play}</div>}
+                                </div>
+
+
+                                <div className="md:col-span-2 space-y-2" id="grooming_temperament">
+                                    <label className="text-sm font-bold text-soosi-wood ml-1 flex items-center gap-1"><span className="text-soosi-red text-xs">●</span> 美容性情與攻擊性評估</label>
+                                    <div className="space-y-2">
+                                        {[
+                                            {v: '天使寶寶', l: '😇 天使寶寶：個性溫和，無任何攻擊紀錄，也不怕生。'},
+                                            {v: '有點緊張', l: '😓 有點緊張：膽小怕生，可能會低吼或閃躲，但未曾咬人。'},
+                                            {v: '恰北北/護主', l: <span className="text-red-500">🤬 恰北北/護主：特定部位敏感或曾有攻擊紀錄 (請務必告知)。</span>}
+                                        ].map(item => (
+                                            <button key={item.v} type="button" onClick={()=>handleChange('grooming_temperament', item.v)}
+                                                className={`w-full pill-button px-4 py-3 rounded-xl text-left font-bold text-sm ${formData.grooming_temperament === item.v ? 'active' : 'inactive'}`}>
+                                                {item.l}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    {errors.grooming_temperament && <div className="field-error"><Icon name="alert-circle" size={12}/>{errors.grooming_temperament}</div>}
+                                </div>
+
+                                <div className="md:col-span-2 space-y-2">
+                                    <label className="text-sm font-bold text-soosi-wood ml-1 flex items-center gap-1"><span className="text-soosi-red text-xs">●</span> 晶片狀態</label>
+                                    <div className="flex gap-2 flex-wrap">
+                                        {['有晶片','有晶片(號碼不詳)','無晶片'].map(s => (
+                                            <PillBtn key={s} active={formData.chip_status===s} onClick={()=>handleChange('chip_status', s)}>{s}</PillBtn>
+                                        ))}
+                                    </div>
+                                    {formData.chip_status === '有晶片' && (
+                                        <input type="text" value={formData.chip_id} onChange={e=>handleChange('chip_id', e.target.value)} className="w-full cute-input px-4 py-3 mt-2" placeholder="請輸入晶片號碼" />
+                                    )}
+                                    {errors.chip_status && <div className="field-error"><Icon name="alert-circle" size={12}/>{errors.chip_status}</div>}
+                                </div>
+
+                                <div className="md:col-span-2">
+                                    <InputGroup label="指定就醫診療機構 (若未填寫，則送往特約醫院)" id="preferred_clinic">
+                                        <input type="text" value={formData.preferred_clinic} onChange={e=>handleChange('preferred_clinic', e.target.value)} className="w-full cute-input px-4 py-3" />
+                                        <div className="mt-2 p-3 rounded-xl bg-soosi-green/5 border border-soosi-green/20 flex items-center gap-3">
+                                            <div className="bg-soosi-green p-2 rounded-full text-white"><Icon name="hospital" size={16}/></div>
+                                            <div>
+                                                <div className="text-xs font-bold text-gray-400">特約醫院</div>
+                                                <div className="font-bold text-soosi-wood text-sm">待確認</div>
+                                            </div>
+                                        </div>
+                                    </InputGroup>
+                                </div>
+
+                                <div className="md:col-span-2 space-y-2">
+                                    <label className="text-sm font-bold text-soosi-wood ml-1 flex items-center gap-1"><span className="text-soosi-red text-xs">●</span> 過往病史</label>
+                                    <div className="flex gap-3 mb-3">
+                                        <PillBtn active={formData.medical_status==='有'} onClick={()=>handleChange('medical_status', '有')}>有</PillBtn>
+                                        <PillBtn active={formData.medical_status==='無'} onClick={()=>handleChange('medical_status', '無')}>無</PillBtn>
+                                    </div>
+                                    {errors.medical_status && <div className="field-error"><Icon name="alert-circle" size={12}/>{errors.medical_status}</div>}
+                                    {formData.medical_status === '有' && (
+                                        <div className="space-y-2 bg-red-50 p-4 rounded-xl border border-red-100 animate-in fade-in">
+                                            <p className="text-xs text-soosi-red font-bold">⚠️ 有病史將觸發高風險條款，請詳實填寫。</p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {['心臟病','氣喘','氣管塌陷','白內障','癲癇','心絲蟲','皮膚病','其他'].map(v => (
+                                                    <button key={v} type="button" onClick={()=>toggleArray('medical_history', v)}
+                                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${formData.medical_history.includes(v) ? 'bg-soosi-wood text-white border-soosi-wood' : 'bg-white text-gray-500 border-gray-200'}`}>
+                                                        {v}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            {formData.medical_history.includes('其他') && <textarea className="w-full cute-input px-4 py-2 mt-2" placeholder="請說明其他病史..." value={formData.medical_history_other} onChange={e=>handleChange('medical_history_other', e.target.value)} />}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* Legal & Signature */}
+                        <section className="cute-card p-8 space-y-8">
+                            <div className="flex items-center gap-3 border-b-2 border-dashed border-soosi-wood/10 pb-4">
+                                <span className="text-2xl">📝</span>
+                                <h3 className="text-lg font-black text-soosi-dark">法律條款與數位簽署</h3>
+                            </div>
+
+                            {/* 乙方資訊 */}
+                            <div className="bg-[#F9F7F2] p-5 rounded-2xl border border-soosi-wood/10 text-xs text-soosi-wood space-y-2">
+                                <h4 className="font-bold border-b border-soosi-wood/10 pb-2 mb-2">乙方（店家）資訊</h4>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div><span className="opacity-60 block">店家名稱</span><span className="font-bold">宿洗 Soosi Pet</span></div>
+                                    <div><span className="opacity-60 block">特寵業字號</span><span className="font-bold">S1140030號</span></div>
+                                    <div><span className="opacity-60 block">聯絡電話</span><span className="font-bold">待確認</span></div>
+                                    <div><span className="opacity-60 block">營業時間</span><span className="font-bold">待確認</span></div>
+                                    <div className="col-span-2"><span className="opacity-60 block">營業地址</span><span className="font-bold">台中市清水區新興路142-1號</span></div>
+                                </div>
+                            </div>
+
+<div className="space-y-4">
+                                {/* 1. 美容條款 (永遠顯示，因為住宿也包含美容) */}
+                                <button type="button" onClick={() => setActiveModal('grooming')} 
+                                    className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${termsRead.grooming ? 'bg-soosi-green/10 border-soosi-green' : 'bg-white border-soosi-green/30 hover:border-soosi-green'}`}>
+                                    <div className="flex items-center gap-3 text-left">
+                                        <div className={`p-2 rounded-lg ${termsRead.grooming ? 'bg-soosi-green text-white' : 'bg-[#E8F1EB] text-soosi-green'}`}><Icon name={termsRead.grooming ? "check" : "scissors"} size={20}/></div>
+                                        <div>
+                                            <div className={`font-bold text-sm text-soosi-dark`}>請詳閱【犬、貓美容契約條款】</div>
+                                            {!termsRead.grooming && <div className="text-xs text-gray-400">點擊閱讀</div>}
+                                        </div>
+                                    </div>
+                                    <div className={`text-xs font-bold px-3 py-1 rounded-full ${termsRead.grooming ? 'bg-soosi-green text-white' : 'bg-gray-100 text-gray-400'}`}>{termsRead.grooming ? '已完成' : '待閱讀'}</div>
+                                </button>
+
+                                {/* 2. 住宿條款 (僅住宿顯示) */}
+                                {isBoarding && (
+                                    <button type="button" onClick={() => setActiveModal('boarding')} 
+                                        className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all animate-in fade-in ${termsRead.boarding ? 'bg-soosi-wood/10 border-soosi-wood' : 'bg-white border-soosi-wood/30 hover:border-soosi-wood'}`}>
+                                        <div className="flex items-center gap-3 text-left">
+                                            <div className={`p-2 rounded-lg ${termsRead.boarding ? 'bg-soosi-wood text-white' : 'bg-[#F5EFE9] text-soosi-wood'}`}><Icon name={termsRead.boarding ? "check" : "home"} size={20}/></div>
+                                            <div>
+                                                <div className={`font-bold text-sm text-soosi-dark`}>請詳閱【寵物住宿安親契約】</div>
+                                                {!termsRead.boarding && <div className="text-xs text-gray-400">點擊閱讀</div>}
+                                            </div>
+                                        </div>
+                                        <div className={`text-xs font-bold px-3 py-1 rounded-full ${termsRead.boarding ? 'bg-soosi-wood text-white' : 'bg-gray-100 text-gray-400'}`}>{termsRead.boarding ? '已完成' : '待閱讀'}</div>
+                                    </button>
+                                )}
+
+                                {/* 3. 高風險美容 (若符合風險，無論美容或住宿都顯示) */}
+                                {isHighRisk && (
+                                    <button type="button" onClick={() => setActiveModal('highRiskGrooming')} 
+                                        className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all animate-in fade-in ${termsRead.highRiskGrooming ? 'bg-soosi-green/10 border-soosi-green' : 'bg-white border-red-200 hover:border-red-400'}`}>
+                                        <div className="flex items-center gap-3 text-left">
+                                            <div className={`p-2 rounded-lg ${termsRead.highRiskGrooming ? 'bg-soosi-green text-white' : 'bg-red-50 text-red-500'}`}><Icon name={termsRead.highRiskGrooming ? "check" : "alert-triangle"} size={20}/></div>
+                                            <div>
+                                                <div className={`font-bold text-sm ${termsRead.highRiskGrooming ? 'text-soosi-green' : 'text-red-600'}`}>高風險【美容】服務風險告知</div>
+                                                <div className="text-xs text-gray-400 font-bold">
+                                                    {riskType === 'senior' ? '檢測到毛孩已滿 8 歲' : riskType === 'puppy' ? '檢測到毛孩未滿 5 個月' : '檢測到毛孩有過往病史'}，請務必詳閱
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className={`text-xs font-bold px-3 py-1 rounded-full ${termsRead.highRiskGrooming ? 'bg-soosi-green text-white' : 'bg-red-100 text-red-600'}`}>{termsRead.highRiskGrooming ? '已同意' : '務必詳閱'}</div>
+                                    </button>
+                                )}
+
+                                {/* 4. 高風險住宿 (僅住宿 + 符合風險顯示) */}
+                                {isBoarding && isHighRisk && (
+                                    <button type="button" onClick={() => setActiveModal('highRiskBoarding')} 
+                                        className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all animate-in fade-in ${termsRead.highRiskBoarding ? 'bg-soosi-wood/10 border-soosi-wood' : 'bg-white border-red-200 hover:border-red-400'}`}>
+                                        <div className="flex items-center gap-3 text-left">
+                                            <div className={`p-2 rounded-lg ${termsRead.highRiskBoarding ? 'bg-soosi-wood text-white' : 'bg-red-50 text-red-500'}`}><Icon name={termsRead.highRiskBoarding ? "check" : "alert-triangle"} size={20}/></div>
+                                            <div>
+                                                <div className={`font-bold text-sm ${termsRead.highRiskBoarding ? 'text-soosi-wood' : 'text-red-600'}`}>高風險【住宿】服務風險告知</div>
+                                                <div className="text-xs text-gray-400 font-bold">
+                                                    針對高齡、幼齡或病史寵物之住宿特別約定
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className={`text-xs font-bold px-3 py-1 rounded-full ${termsRead.highRiskBoarding ? 'bg-soosi-wood text-white' : 'bg-red-100 text-red-600'}`}>{termsRead.highRiskBoarding ? '已同意' : '務必詳閱'}</div>
+                                    </button>
+                                )}
+
+{/* 移除手動勾選框，直接由條款閱讀狀態控制簽名板解鎖 */}
+                        </div>
+
+{/* Signature - 依賴條款閱讀狀態 (allTermsRead) */}
+                        <div className="space-y-3" id="signature">
+                            <div className="flex justify-between items-center">
+                                {/* 修改處：移除了 <span className="text-soosi-red text-xs">●</span> */}
+                                <label className="text-sm font-bold text-soosi-wood flex items-center gap-2"><Icon name="pen-tool" size={16}/> 數位簽名</label>
+                                {realtimeSig && <button onClick={()=>setRealtimeSig(null)} className="text-xs text-red-400 font-bold flex items-center gap-1 bg-red-50 px-2 py-1 rounded-full"><Icon name="trash-2" size={12}/> 重簽</button>}
+                            </div>
+                            
+                            {realtimeSig ? (
+                                <div className="space-y-3 animate-in fade-in">
+                                    <div className="bg-white rounded-2xl border-2 border-soosi-wood/20 p-6 flex justify-center items-center min-h-[180px] shadow-inner relative overflow-hidden">
+                                        <div className="absolute inset-0 opacity-5 bg-[radial-gradient(#8E6E53_1px,transparent_1px)] [background-size:12px_12px]"></div>
+                                        <img src={realtimeSig} alt="您的簽名" className="max-h-[150px] object-contain relative z-10" />
+                                    </div>
+                                    <div className="flex items-center justify-end gap-3">
+                                        <div className="bg-soosi-green/10 text-soosi-green px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm border border-soosi-green/20">
+                                            <Icon name="check-circle" size={14}/> 已簽署
+                                        </div>
+                                        <div className="text-xs text-gray-400 font-bold">
+                                            簽署時間：{new Date().toLocaleString('zh-TW', { hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <button onClick={() => { if(allTermsRead) setShowFullSig(true); else alert('請先完成上方所有契約條款閱讀'); }} 
+                                    className={`w-full h-36 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-3 transition-all group ${allTermsRead ? 'border-soosi-green bg-white hover:bg-soosi-green/5 cursor-pointer' : 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-70'}`}>
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${allTermsRead ? 'bg-soosi-green text-white group-hover:scale-110 shadow-md' : 'bg-gray-200 text-gray-400'}`}>
+                                        <Icon name={allTermsRead ? "pen-tool" : "lock"} size={20}/>
+                                    </div>
+                                    <div className="text-center">
+                                        <div className={`text-sm font-bold ${allTermsRead ? 'text-soosi-dark' : 'text-gray-400'}`}>{allTermsRead ? "點擊此處開始簽名" : "請先完成上方條款閱讀"}</div>
+                                        <div className="text-xs text-gray-400 mt-1">{allTermsRead ? "開啟全螢幕手寫板" : "閱讀並同意後解鎖"}</div>
+                                    </div>
+                                </button>
+                            )}
+                            {errors.signature && <div className="field-error"><Icon name="alert-circle" size={12}/>{errors.signature}</div>}
+                        </div>
+
+                        {/* Submit */}
+                        <button onClick={handleSubmit} disabled={isSubmitting || !realtimeSig} className="w-full py-5 bg-soosi-dark text-white rounded-[2rem] font-black text-lg shadow-xl hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:transform-none">
+                            {isSubmitting ? <Icon name="loader-2" className="animate-spin"/> : <Icon name="send" />}
+                            {isSubmitting ? '提交中...' : '確認並提交數位契約'}
+                        </button>
+                        </section>
+                    </main>
+
+                    {/* Fullscreen Signature Modal */}
+                    {showFullSig && (
+                        <div className="fullscreen-signature flex flex-col animate-in fade-in duration-200">
+                            <div className="bg-soosi-wood text-white p-4 flex justify-between items-center shadow-md shrink-0">
+                                <div className="font-bold flex items-center gap-2"><Icon name="pen-tool"/> 請簽名</div>
+                                <button onClick={()=>setShowFullSig(false)}><Icon name="x"/></button>
+                            </div>
+                            <div className="flex-1 bg-[#F9F7F2] relative touch-none cursor-crosshair overflow-hidden">
+                                <canvas ref={sigCanvasRef} className="w-full h-full block"></canvas>
+                            </div>
+                            <div className="p-4 bg-white border-t flex gap-3 safe-area-bottom shrink-0">
+                                <button onClick={()=>{padInstance.current?.clear()}} className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold">重寫</button>
+                                <button onClick={()=>{
+                                    if(!padInstance.current?.isEmpty()) {
+                                        setRealtimeSig(padInstance.current.toDataURL());
+                                        setShowFullSig(false);
+                                        if(errors.signature) setErrors(p=>({...p, signature:null}));
+                                    } else alert("請先簽名");
+                                }} className="flex-[2] py-3 bg-soosi-green text-white rounded-xl font-bold shadow-lg">確認簽名</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Terms Modals */}
+                    <TermsModal isOpen={activeModal === 'grooming'} onClose={()=>setActiveModal(null)} title="美容服務契約條款" onAgree={()=>setTermsRead(p=>({...p, grooming:true}))}>
+                         <div className="space-y-4">
+                             <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200 text-xs text-yellow-800 font-bold mb-2">
+                                 💡 本條款適用於所有美容服務項目。
+                             </div>
+                             <div className="space-y-2">
+                                <h5 className="font-black text-base text-soosi-wood">一、健康與安全告知</h5>
+                                <p>1. 飼主應誠實告知寵物身體狀況（如心臟病、癲癇、攻擊性等）。若隱瞞導致意外，飼主須自行負責。</p>
+                                <p>2. 若發現寄生蟲（跳蚤壁蝨），將強制執行除蟲與環境清潔費。</p>
+                             </div>
+                             <div className="space-y-2">
+                                <h5 className="font-black text-base text-soosi-wood">二、緊急醫療</h5>
+                                <p>若發生緊急狀況，店家將優先送往特約醫院，相關醫療費用由飼主負擔。</p>
+                             </div>
+                         </div>
+                    </TermsModal>
+
+                    <TermsModal isOpen={activeModal === 'boarding'} onClose={()=>setActiveModal(null)} title="住宿安親契約條款" onAgree={()=>setTermsRead(p=>({...p, boarding:true}))}>
+                         <div className="space-y-4">
+                             <div className="bg-blue-50 p-3 rounded-lg border border-blue-200 text-xs text-blue-800 font-bold mb-2">
+                                 💡 住宿期間包含基本美容服務，故需同時同意美容條款。
+                             </div>
+                             <div className="space-y-2">
+                                <h5 className="font-black text-base text-soosi-wood">一、住宿規範</h5>
+                                <p>1. 入住前需確認已施打核心疫苗（狂犬病、多合一）。</p>
+                                <p>2. 住宿以 24 小時制計算，超時將加收安親費用。</p>
+                             </div>
+                             <div className="space-y-2">
+                                <h5 className="font-black text-base text-soosi-wood">二、飲食與作息</h5>
+                                <p>建議自備飼料以避免腸胃不適，若需店家提供將另收費用。</p>
+                             </div>
+                         </div>
+                    </TermsModal>
+
+                    <TermsModal isOpen={activeModal === 'senior'} onClose={()=>setActiveModal(null)} title="高風險寵物服務風險告知" onAgree={()=>setTermsRead(p=>({...p, senior:true}))}>
+                         <div className="space-y-4 border-2 border-red-100 rounded-xl p-4 bg-red-50">
+                             <h4 className="font-bold text-center text-lg text-soosi-red border-b border-red-200 pb-2 mb-2">【高風險寵物同意書】</h4>
+                             <p className="font-bold text-soosi-dark">
+                                 針對 {riskType === 'senior' ? '高齡犬 (8歲以上)' : riskType === 'puppy' ? '幼犬 (5個月以下)' : '患有過往病史之寵物'} 之特別約定：
+                             </p>
+                             <ul className="list-disc pl-5 space-y-1 mt-2">
+                                <li>本人知悉高齡/幼齡/生病寵物在美容或住宿過程中，因緊迫可能導致潛在疾病發作。</li>
+                                <li>若因寵物自身因素（如心臟病發、休克、癲癇）導致之不可抗力意外，同意不追究店家責任。</li>
+                             </ul>
+                         </div>
+                    </TermsModal>
+{/* 3. 高風險美容 Modal */}
+                    <TermsModal isOpen={activeModal === 'highRiskGrooming'} onClose={()=>setActiveModal(null)} title="高風險美容服務風險告知" onAgree={()=>setTermsRead(p=>({...p, highRiskGrooming:true}))}>
+                         <div className="space-y-4 border-2 border-red-100 rounded-xl p-4 bg-red-50">
+                             <h4 className="font-bold text-center text-lg text-soosi-red border-b border-red-200 pb-2 mb-2">【高風險美容同意書】</h4>
+                             <p className="font-bold text-soosi-dark text-sm">
+                                 針對 {riskType === 'senior' ? '高齡犬 (8歲以上)' : riskType === 'puppy' ? '幼犬 (5個月以下)' : '患有過往病史之寵物'} 之美容特別約定：
+                             </p>
+                             <ul className="list-disc pl-5 space-y-2 mt-2 text-sm text-soosi-dark">
+                                <li>本人知悉高齡/幼齡/生病寵物在洗澡、吹整過程中，因緊迫可能導致潛在疾病發作（如休克、癲癇）。</li>
+                                <li>美容師將盡力採取溫和手段，若寵物無法負荷將隨時中止服務。</li>
+                                <li>若發生不可抗力之意外（非人為蓄意傷害），同意不追究店家責任。</li>
+                             </ul>
+                             <p className="text-xs text-gray-500 mt-2 text-center">-- 完整條款待補 --</p>
+                         </div>
+                    </TermsModal>
+
+                    {/* 4. 高風險住宿 Modal */}
+                    <TermsModal isOpen={activeModal === 'highRiskBoarding'} onClose={()=>setActiveModal(null)} title="高風險住宿服務風險告知" onAgree={()=>setTermsRead(p=>({...p, highRiskBoarding:true}))}>
+                         <div className="space-y-4 border-2 border-red-100 rounded-xl p-4 bg-red-50">
+                             <h4 className="font-bold text-center text-lg text-soosi-red border-b border-red-200 pb-2 mb-2">【高風險住宿同意書】</h4>
+                             <p className="font-bold text-soosi-dark text-sm">
+                                 針對 {riskType === 'senior' ? '高齡犬 (8歲以上)' : riskType === 'puppy' ? '幼犬 (5個月以下)' : '患有過往病史之寵物'} 之住宿特別約定：
+                             </p>
+                             <ul className="list-disc pl-5 space-y-2 mt-2 text-sm text-soosi-dark">
+                                <li>本人知悉夜間無人照護時段，若寵物因自身疾病發作（如心臟病、嘔吐窒息）導致意外，店家無法即時處置。</li>
+                                <li>同意授權店家於緊急時刻進行醫療處置，費用由飼主負擔。</li>
+                                <li>已確認寵物身體狀況適合住宿，無隱瞞重大病情。</li>
+                             </ul>
+                             <p className="text-xs text-gray-500 mt-2 text-center">-- 完整條款待補 --</p>
+                         </div>
+                    </TermsModal>
+                </div>
+            );
+        };
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
