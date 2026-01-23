@@ -130,6 +130,9 @@
             border-color: var(--brand-primary);
             color: var(--brand-primary);
         }
+        /* 隱藏捲軸但保留滑動功能 */
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
         /* 簽名板全螢幕 */
         .fullscreen-signature {
@@ -263,102 +266,173 @@ return (
         };
 
 // --- 1. 定義價目表資料 ---
+// --- 1. 定義價目表資料 (優化版：體重分級制) ---
         const PRICE_DATA = {
             dogs: [
-                { category: '大型犬 (短毛/中長毛)', items: [
-                    { breed: '拉不拉多', weight: '5kg以下', small: 600, full: 1200 },
-                    { breed: '黃金獵犬', weight: '5-10kg', small: 900, full: 1800 },
-                    { breed: '威瑪犬', weight: '10-20kg', small: 1000, full: 2000 },
-                    { breed: '大丹狗', weight: '20-30kg', small: 1400, full: 2800 },
-                    { breed: '高山犬', weight: '30-40kg', small: 1800, full: 3600 },
-                    { breed: '羅威納犬', weight: '40kg以上', small: 2000, full: 4000 },
-                ]},
-                { category: '大型犬 (長毛/雙層毛)', items: [
-                    { breed: '標準貴賓', weight: '5kg以下', small: 600, full: 1500 },
-                    { breed: '哈士奇', weight: '5-10kg', small: 1000, full: 2500 },
-                    { breed: '阿拉斯加', weight: '10-20kg', small: 1800, full: 3500 },
-                    { breed: '古代牧羊犬', weight: '20-30kg', small: 2000, full: 4500 },
-                    { breed: '鬆獅犬', weight: '30-40kg', small: 2200, full: 5500 },
-                    { breed: '秋田犬', weight: '40kg以上', small: 2400, full: 6500 },
-                ]},
-                { category: '小型犬 / 中型', items: [
-                    { breed: '吉娃娃', weight: '2kg以下', small: 500, full: 800 },
-                    { breed: '臘腸', weight: '2-5kg', small: 500, full: 1000 },
-                    { breed: '巴戈', weight: '5-10kg', small: 600, full: 1200 },
-                    { breed: '法鬥', weight: '10-15kg', small: 800, full: 1500 },
-                ]}
+                { weight: '5kg 以下', typeA: '吉娃娃、臘腸、幼犬', typeB: '貴賓、比熊、馬爾濟斯', small: '500~600', full: '800~1500' },
+                { weight: '5-10kg', weightClass: 'bg-green-50', typeA: '巴戈、法鬥、柴犬', typeB: '柯基、喜樂蒂、狐狸', small: '600~900', full: '1200~1800' },
+                { weight: '10-20kg', typeA: '米克斯、威瑪', typeB: '邊境、哈士奇', small: '1000~1800', full: '2000~3500' },
+                { weight: '20-30kg', weightClass: 'bg-green-50', typeA: '高山犬、羅威納', typeB: '古代牧羊犬、阿富汗', small: '1400~2000', full: '2800~4500' },
+                { weight: '30-40kg', typeA: '杜賓、大丹', typeB: '鬆獅犬、大白熊', small: '1800~2200', full: '3600~5500' },
+                { weight: '40kg 以上', weightClass: 'bg-green-50', typeA: '狼犬、大型獒犬', typeB: '秋田、薩摩耶、聖伯納', small: '2000~2400', full: '4000~6500' },
             ],
             cats: [
-                { type: '幼貓 (2-6個月)', weight: '-', small: 600, full: '-' },
-                { type: '短毛貓', weight: '2-6kg', small: 800, full: 1600 },
-                { type: '中長毛貓', weight: '2-6kg', small: 1000, full: 2000 },
-                { type: '長毛貓', weight: '2-6kg', small: 1200, full: 2400 },
+                { type: '幼貓', sub: '2-6個月', small: '$600', full: '-', note: '視親人程度' },
+                { type: '短毛貓', sub: '2-6kg / >6kg', small: '$800 / $1000', full: '$1600 / $2000', note: '6kg以上 +$100/kg' },
+                { type: '中長毛', sub: '2-6kg / >6kg', small: '$1000 / $1200', full: '$2000 / $2400', note: '6kg以上 +$100/kg' },
+                { type: '長毛貓', sub: '2-6kg / >6kg', small: '$1200 / $1400', full: '$2400 / $2800', note: '6kg以上 +$100/kg' },
+            ],
+            extras: [
+                { name: '局部修飾', desc: '貴賓臉/腳', price: '$150 / $300' },
+                { name: '特殊造型', desc: '腳球 / 腳柱', price: '$400起 / $600起' },
+                { name: '其他費用', desc: '拆結 / 除蚤 / 兇', price: '現場報價' }
             ]
         };
 
-        // --- 2. 定義價目表視窗組件 ---
-        const PriceListModal = ({ isOpen, onClose }) => {
-            const [tab, setTab] = React.useState('dog');
-            if (!isOpen) return null;
+// --- 2. 定義價目表頁面 (全螢幕獨立頁面版) ---
+        const PriceListPage = ({ onBack }) => {
+            const [activeTab, setActiveTab] = useState('small'); // small, medium, large, cat
+            
+            // 資料分組邏輯 (維持不變)
+            const groupedDogs = useMemo(() => {
+                return {
+                    small: [PRICE_DATA.dogs[0]],
+                    medium: [PRICE_DATA.dogs[1], PRICE_DATA.dogs[2]],
+                    large: [PRICE_DATA.dogs[3], PRICE_DATA.dogs[4], PRICE_DATA.dogs[5]]
+                };
+            }, []);
+
+            // 內部小組件：價格行
+            const PriceRow = ({ label, value, highlight = false }) => (
+                <div className="flex justify-between items-center py-3 border-b border-dashed border-gray-100 last:border-0">
+                    <span className="text-sm font-bold text-soosi-dark">{label}</span>
+                    <span className={`text-sm font-black font-mono ${highlight ? 'text-soosi-green text-base' : 'text-soosi-wood'}`}>{value}</span>
+                </div>
+            );
+
+            // 內部小組件：Tab 按鈕
+            const TabBtn = ({ id, label, icon }) => (
+                <button 
+                    onClick={() => { setActiveTab(id); window.scrollTo({top:0, behavior:'smooth'}); }}
+                    className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all border shadow-sm flex items-center justify-center gap-2 ${
+                        activeTab === id 
+                        ? 'bg-soosi-wood text-white border-soosi-wood ring-2 ring-soosi-wood/20' 
+                        : 'bg-white text-gray-400 border-gray-100'
+                    }`}
+                >
+                    <span className="text-lg">{icon}</span>
+                    <span>{label}</span>
+                </button>
+            );
+
             return (
-                <div className="fixed inset-0 z-[160] bg-soosi-dark/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={onClose}>
-                    <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
-                        <div className="px-6 py-4 bg-soosi-wood text-white flex justify-between items-center shrink-0">
-                            <h3 className="text-lg font-black tracking-wider flex items-center gap-2"><Icon name="dollar-sign" size={18}/> 美容價目表</h3>
-                            <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors"><Icon name="x" size={20} /></button>
+                <div className="min-h-screen bg-[#F9F7F2] pb-10 animate-in slide-in-from-right duration-300">
+                    
+                    {/* 獨立 Header：只有返回按鈕 */}
+                    <div className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-sm px-4 py-3 flex items-center gap-4">
+                        <button onClick={onBack} className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors">
+                            <Icon name="arrow-left" size={20}/>
+                        </button>
+                        <div>
+                            <h3 className="text-lg font-black text-soosi-wood">服務價目表</h3>
+                            <p className="text-[10px] text-gray-400 font-bold">點擊左側按鈕返回填寫</p>
                         </div>
-                        <div className="flex p-2 gap-2 bg-gray-50 border-b">
-                            <button onClick={() => setTab('dog')} className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${tab === 'dog' ? 'bg-soosi-wood text-white shadow-md' : 'bg-white text-gray-500 hover:bg-gray-100'}`}>🐶 狗狗價目</button>
-                            <button onClick={() => setTab('cat')} className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${tab === 'cat' ? 'bg-soosi-wood text-white shadow-md' : 'bg-white text-gray-500 hover:bg-gray-100'}`}>🐱 貓咪價目</button>
+                    </div>
+
+                    {/* 內容區 */}
+                    <div className="p-4 space-y-4 max-w-2xl mx-auto">
+                        
+                        {/* 頂部切換區 (改為兩排設計，手機更好按) */}
+                        <div className="grid grid-cols-2 gap-2">
+                            <TabBtn id="small" label="小型犬" icon="🐾" />
+                            <TabBtn id="medium" label="中型犬" icon="🐕" />
+                            <TabBtn id="large" label="大型犬" icon="🦮" />
+                            <TabBtn id="cat" label="貓咪與其他" icon="🐱" />
                         </div>
-                        <div className="overflow-y-auto p-4 space-y-6 bg-[#F9F7F2]">
-                            {tab === 'dog' && PRICE_DATA.dogs.map((group, idx) => (
-                                <div key={idx} className="bg-white rounded-xl shadow-sm border border-soosi-wood/10 overflow-hidden">
-                                    <div className="bg-soosi-wood/10 px-4 py-2 font-bold text-soosi-wood text-sm">{group.category}</div>
-                                    <table className="w-full text-sm text-left">
-                                        <thead className="bg-gray-50 text-gray-600 text-xs uppercase">
-                                            <tr><th className="px-4 py-2">犬種</th><th className="px-4 py-2">體重</th><th className="px-4 py-2 text-right">小美容</th><th className="px-4 py-2 text-right">大美容</th></tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-100 text-soosi-dark">
-                                            {group.items.map((item, i) => (
-                                                <tr key={i} className="hover:bg-gray-50">
-                                                    <td className="px-4 py-3 font-bold">{item.breed}</td>
-                                                    <td className="px-4 py-3 text-xs text-gray-500">{item.weight}</td>
-                                                    <td className="px-4 py-3 text-right font-mono">${item.small}</td>
-                                                    <td className="px-4 py-3 text-right font-mono font-bold text-soosi-wood">${item.full}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+
+                        {/* 狗狗卡片渲染 */}
+                        {['small', 'medium', 'large'].includes(activeTab) && groupedDogs[activeTab].map((item, idx) => (
+                            <div key={idx} className="bg-white rounded-2xl p-6 shadow-sm border border-soosi-wood/5 animate-in fade-in zoom-in-95 duration-300">
+                                <div className="flex items-center justify-between mb-4 border-b border-gray-50 pb-3">
+                                    <div className="bg-soosi-green/10 text-soosi-green font-black px-3 py-1 rounded-lg text-sm">{item.weight}</div>
+                                </div>
+                                
+                                {/* 常見犬種 */}
+                                <div className="mb-5 space-y-2">
+                                    <div className="flex items-start gap-2 text-xs text-gray-500">
+                                        <span className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 font-bold shrink-0">短毛</span>
+                                        <span className="leading-relaxed">{item.typeA}</span>
+                                    </div>
+                                    <div className="flex items-start gap-2 text-xs text-gray-500">
+                                        <span className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 font-bold shrink-0">長毛</span>
+                                        <span className="leading-relaxed">{item.typeB}</span>
+                                    </div>
+                                </div>
+
+                                {/* 價格 */}
+                                <div className="bg-gray-50 rounded-xl p-4 space-y-1">
+                                    <PriceRow label="小美容 (洗澡+修剪)" value={`$${item.small}`} />
+                                    <PriceRow label="大美容 (全身造型)" value={`$${item.full}`} highlight={true} />
+                                </div>
+                            </div>
+                        ))}
+
+{/* 貓咪美容區塊 (僅在貓咪分頁顯示) */}
+                        {activeTab === 'cat' && (
+                            <div className="bg-white rounded-2xl p-6 shadow-sm border border-soosi-wood/5 relative overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+                                <Icon name="cat" className="absolute -right-6 -bottom-6 text-soosi-wood/5 w-32 h-32" />
+                                <h4 className="font-black text-soosi-wood mb-4 text-lg">🐱 貓咪美容</h4>
+                                <div className="space-y-6">
+                                    {PRICE_DATA.cats.map((cat, i) => (
+                                        <div key={i} className="relative z-10">
+                                            <div className="flex justify-between items-baseline mb-2">
+                                                <span className="font-bold text-soosi-dark text-base">{cat.type}</span>
+                                                <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-500">{cat.sub}</span>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="bg-orange-50/50 rounded-xl p-3 text-center border border-orange-100/50">
+                                                    <div className="text-xs text-orange-400 mb-1">洗澡</div>
+                                                    <div className="font-mono font-bold text-soosi-dark">{cat.small}</div>
+                                                </div>
+                                                <div className="bg-soosi-green/5 rounded-xl p-3 text-center border border-soosi-green/10">
+                                                    <div className="text-xs text-soosi-green mb-1">大美容</div>
+                                                    <div className="font-mono font-black text-soosi-wood">{cat.full}</div>
+                                                </div>
+                                            </div>
+                                            {cat.note && <div className="text-[10px] text-gray-400 mt-1 text-right">* {cat.note}</div>}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 其他費用區塊 (所有分頁頁籤底部皆顯示) */}
+                        <div className="bg-white rounded-2xl p-6 shadow-sm border border-soosi-wood/5">
+                            <h4 className="font-black text-soosi-wood mb-4 text-lg">✨ 其他費用</h4>
+                            {PRICE_DATA.extras.map((ex, i) => (
+                                <div key={i} className="flex justify-between items-center py-4 border-b border-dashed border-gray-100 last:border-0">
+                                    <div>
+                                        <div className="font-bold text-soosi-dark text-base">{ex.name}</div>
+                                        <div className="text-xs text-gray-400 mt-0.5">{ex.desc}</div>
+                                    </div>
+                                    <div className="text-soosi-wood font-mono font-bold text-lg">{ex.price}</div>
                                 </div>
                             ))}
-                            {tab === 'cat' && (
-                                <div className="bg-white rounded-xl shadow-sm border border-soosi-wood/10 overflow-hidden">
-                                    <div className="bg-soosi-wood/10 px-4 py-2 font-bold text-soosi-wood text-sm">貓咪服務</div>
-                                    <table className="w-full text-sm text-left">
-                                        <thead className="bg-gray-50 text-gray-600 text-xs uppercase">
-                                            <tr><th className="px-4 py-2">類別</th><th className="px-4 py-2">體重</th><th className="px-4 py-2 text-right">小美容</th><th className="px-4 py-2 text-right">大美容</th></tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-100 text-soosi-dark">
-                                            {PRICE_DATA.cats.map((item, i) => (
-                                                <tr key={i} className="hover:bg-gray-50">
-                                                    <td className="px-4 py-3 font-bold">{item.type}</td>
-                                                    <td className="px-4 py-3 text-xs text-gray-500">{item.weight}</td>
-                                                    <td className="px-4 py-3 text-right font-mono">{item.small === '-' ? '-' : `$${item.small}`}</td>
-                                                    <td className="px-4 py-3 text-right font-mono font-bold text-soosi-wood">{item.full === '-' ? '-' : `$${item.full}`}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                    <div className="p-3 bg-yellow-50 text-yellow-800 text-xs border-t border-yellow-100">💡 貓咪超過 6 公斤，每增加 1 公斤加收 $100。</div>
-                                </div>
-                            )}
-                            <div className="text-xs text-gray-400 text-center pb-2">* 實際收費以現場毛量、毛質及體型評估為準。<br/>* 若發現跳蚤壁蝨、嚴重打結需額外收費。</div>
+                        </div>
+
+                        {/* 底部提醒 */}
+                        <div className="bg-yellow-50 text-yellow-800 p-4 rounded-xl text-xs border border-yellow-100 leading-relaxed flex gap-2">
+                            <Icon name="info" size={16} className="shrink-0 mt-0.5"/>
+                            <div>
+                                <span className="font-bold block mb-1">計價說明：</span>
+                                實際收費仍需依照現場測量之「體重、毛量、廢毛狀況」為準。若有嚴重的打結或跳蚤壁蝨，需現場另加收處理費。
+                            </div>
                         </div>
                     </div>
                 </div>
             );
-        };// --- 住宿價目表 Modal (圖片版) ---
+        };
+        // --- 住宿價目表 Modal (圖片版) ---
         const BoardingPriceModal = ({ isOpen, onClose }) => {
             if (!isOpen) return null;
             return (
@@ -682,6 +756,10 @@ if(!realtimeSig) newErrors.signature = '請完成簽名';
                     </div>
                 );
             }
+// --- 新增：價目表 View (放在 entry 之後，表單之前) ---
+            if (view === 'prices') {
+                return <PriceListPage onBack={() => setView('form')} />;
+            }
 
             // --- 2. 表單 View ---
             return (
@@ -695,11 +773,12 @@ if(!realtimeSig) newErrors.signature = '請完成簽名';
                             </div>
 <div className="flex items-center gap-2">
                                 {/* 美容模式：顯示文字版價目表 */}
-                                {!isBoarding && (
-                                    <button onClick={() => setActiveModal('priceList')} className="text-xs font-bold text-white bg-soosi-wood px-3 py-1.5 rounded-full shadow-sm hover:bg-soosi-wood/90 transition-all flex items-center gap-1">
-                                        <Icon name="dollar-sign" size={14}/> 價目表
-                                    </button>
-                                )}
+
+{!isBoarding && (
+    <button onClick={() => setView('prices')} className="text-xs font-bold text-white bg-soosi-wood px-3 py-1.5 rounded-full shadow-sm hover:bg-soosi-wood/90 transition-all flex items-center gap-1">
+        <Icon name="dollar-sign" size={14}/> 價目表
+    </button>
+)}
 
                                 {/* 住宿模式：顯示圖片版價目表 */}
                                 {isBoarding && (
@@ -1571,8 +1650,6 @@ if(!realtimeSig) newErrors.signature = '請完成簽名';
                             </div>
                         </div>
                     </TermsModal>
-                    {/* 5. 美容價目表 Modal */}
-                    <PriceListModal isOpen={activeModal === 'priceList'} onClose={()=>setActiveModal(null)} />
                     {/* 6. 住宿價目表 Modal (圖片版) */}
                     <BoardingPriceModal isOpen={activeModal === 'boardingPrice'} onClose={()=>setActiveModal(null)} />
                 </div>
