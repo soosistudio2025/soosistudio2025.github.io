@@ -265,16 +265,48 @@ return (
             );
         };
 
-// --- 1. 定義價目表資料 ---
-// --- 1. 定義價目表資料 (優化版：體重分級制) ---
+// --- 1. 定義價目表資料 (優化版：參考 Excel 補齊犬種) ---
         const PRICE_DATA = {
             dogs: [
-                { weight: '5kg 以下', typeA: '吉娃娃、臘腸、幼犬', typeB: '貴賓、比熊、馬爾濟斯', small: '500~600', full: '800~1500' },
-                { weight: '5-10kg', weightClass: 'bg-green-50', typeA: '巴戈、法鬥、柴犬', typeB: '柯基、喜樂蒂、狐狸', small: '600~900', full: '1200~1800' },
-                { weight: '10-20kg', typeA: '米克斯、威瑪', typeB: '邊境、哈士奇', small: '1000~1800', full: '2000~3500' },
-                { weight: '20-30kg', weightClass: 'bg-green-50', typeA: '高山犬、羅威納', typeB: '古代牧羊犬、阿富汗', small: '1400~2000', full: '2800~4500' },
-                { weight: '30-40kg', typeA: '杜賓、大丹', typeB: '鬆獅犬、大白熊', small: '1800~2200', full: '3600~5500' },
-                { weight: '40kg 以上', weightClass: 'bg-green-50', typeA: '狼犬、大型獒犬', typeB: '秋田、薩摩耶、聖伯納', small: '2000~2400', full: '4000~6500' },
+                { 
+                    weight: '5kg 以下', 
+                    typeA: '吉娃娃、迷你臘腸、迷你品、短毛幼犬', 
+                    typeB: '貴賓、瑪爾濟斯、約克夏、博美、西施、蝴蝶犬', 
+                    small: '500~600', full: '800~1500' 
+                },
+                { 
+                    weight: '5-10kg', 
+                    weightClass: 'bg-green-50', 
+                    typeA: '巴哥、法鬥、標準臘腸、傑克羅素、雪納瑞(短)', 
+                    typeB: '比熊、狐狸犬、西高地、北京犬、雪納瑞(長)', 
+                    small: '600~900', full: '1200~1800' 
+                },
+                { 
+                    weight: '10-20kg', 
+                    typeA: '柯基、柴犬、米格魯、台灣犬(小)、惠比特', 
+                    typeB: '喜樂蒂、邊境牧羊犬、銀狐、澳洲牧羊犬', 
+                    small: '1000~1800', full: '2000~3500' 
+                },
+                { 
+                    weight: '20-30kg', 
+                    weightClass: 'bg-green-50', 
+                    typeA: '台灣犬(中)、高山犬、米克斯(中)', 
+                    typeB: '哈士奇、鬆獅犬、標準貴賓、古代牧羊犬', 
+                    small: '1400~2000', full: '2800~4500' 
+                },
+                { 
+                    weight: '30-40kg', 
+                    typeA: '拉布拉多、黃金獵犬、威瑪、杜賓、拳師', 
+                    typeB: '薩摩耶、秋田、大型鬆獅、阿富汗獵犬', 
+                    small: '1800~2200', full: '3600~5500' 
+                },
+                { 
+                    weight: '40kg 以上', 
+                    weightClass: 'bg-green-50', 
+                    typeA: '大丹、羅威納、藏獒、大型獒犬', 
+                    typeB: '阿拉斯加、大白熊、聖伯納、伯恩山', 
+                    small: '2000~2400', full: '4000~6500' 
+                },
             ],
             cats: [
                 { type: '幼貓', sub: '2-6個月', small: '$600', full: '-', note: '視親人程度' },
@@ -283,9 +315,9 @@ return (
                 { type: '長毛貓', sub: '2-6kg / >6kg', small: '$1200 / $1400', full: '$2400 / $2800', note: '6kg以上 +$100/kg' },
             ],
             extras: [
-                { name: '局部修飾', desc: '貴賓臉/腳', price: '$150 / $300' },
-                { name: '特殊造型', desc: '腳球 / 腳柱', price: '$400起 / $600起' },
-                { name: '其他費用', desc: '拆結 / 除蚤 / 兇', price: '現場報價' }
+                { id: 'local', name: '局部修飾', desc: '貴賓臉/腳', price: '$150 / $300' },
+                { id: 'style', name: '特殊造型', desc: '腳球 / 腳柱', price: '$400起 / $600起' },
+                { id: 'other', name: '其他費用', desc: '拆結 / 除蚤 / 兇', price: '現場報價' }
             ]
         };
 
@@ -406,10 +438,17 @@ return (
                             </div>
                         )}
 
-                        {/* 其他費用區塊 (所有分頁頁籤底部皆顯示) */}
+{/* 其他費用區塊 (依據分頁顯示不同內容) */}
                         <div className="bg-white rounded-2xl p-6 shadow-sm border border-soosi-wood/5">
                             <h4 className="font-black text-soosi-wood mb-4 text-lg">✨ 其他費用</h4>
-                            {PRICE_DATA.extras.map((ex, i) => (
+                            {PRICE_DATA.extras
+                                .filter(ex => {
+                                    // 如果是貓咪分頁，只顯示 'other' (其他費用)，隱藏局部修飾和造型
+                                    if (activeTab === 'cat') return ex.id === 'other';
+                                    // 狗狗分頁則全部顯示
+                                    return true;
+                                })
+                                .map((ex, i) => (
                                 <div key={i} className="flex justify-between items-center py-4 border-b border-dashed border-gray-100 last:border-0">
                                     <div>
                                         <div className="font-bold text-soosi-dark text-base">{ex.name}</div>
@@ -419,7 +458,7 @@ return (
                                 </div>
                             ))}
                         </div>
-
+                        
                         {/* 底部提醒 */}
                         <div className="bg-yellow-50 text-yellow-800 p-4 rounded-xl text-xs border border-yellow-100 leading-relaxed flex gap-2">
                             <Icon name="info" size={16} className="shrink-0 mt-0.5"/>
