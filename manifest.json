@@ -2,7 +2,7 @@
   "name": "宿洗寵物 Soosi Pet 數位契約",
   "short_name": "宿洗 Soosi",
   "description": "宿洗寵物 Soosi Pet 數位化服務契約系統",
-  "start_url": "./soosi.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#F9F7F2",
   "theme_color": "#6A8D73",
@@ -24,4 +24,5 @@
       "purpose": "maskable"
     }
   ]
+
 }
