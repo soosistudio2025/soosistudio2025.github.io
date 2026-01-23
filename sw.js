@@ -1,6 +1,6 @@
 const CACHE_NAME = 'soosi-pet-v2';
 const ASSETS_TO_CACHE = [
-  './soosi.html',
+  './index.html',
   './nav.png',
   './logo.png',
   './line.png'
@@ -41,3 +41,4 @@ self.addEventListener('fetch', (event) => {
   );
 
 });
+
