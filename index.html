@@ -64,27 +64,8 @@
             -webkit-font-smoothing: antialiased;
             -webkit-tap-highlight-color: transparent;
         }
-/* 在 <style> 標籤內添加 */
-input, textarea, select {
-    -webkit-user-select: text;
-    user-select: text;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-}
-
-/* 防止點擊其他區域時失去焦點 */
-body {
-    -webkit-user-select: none;
-    user-select: none;
-}
-
-/* 允許文字輸入區域的文字選擇 */
-input, textarea {
-    -webkit-user-select: text;
-    user-select: text;
-}
-
-        /* 首頁 Glass Card */
+        
+      /* 首頁 Glass Card */
         .glass-card {
             background: rgba(255, 255, 255, 0.65);
             backdrop-filter: blur(16px);
@@ -582,6 +563,24 @@ const PriceListPage = ({ onBack }) => {
                 </div>
             );
         };
+                    const PillBtn = ({ active, onClick, children, className = "" }) => (
+                <button type="button" onClick={onClick} 
+                    className={`pill-button flex-1 py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 ${active ? 'active' : 'inactive'} ${className}`}>
+                    {children}
+                </button>
+            );
+
+            const InputGroup = ({ label, error, id, children, required = false }) => (
+                <div className="space-y-1.5" id={id}>
+                    <label className="text-sm font-bold text-soosi-wood ml-1 flex items-center gap-1">
+                        {required && <span className="text-soosi-red text-xs">●</span>}
+                        {label}
+                    </label>
+                    {children}
+                    {error && <div className="field-error"><Icon name="alert-circle" size={12}/>{error}</div>}
+                </div>
+            );
+
         const App = () => {
     // 2. 通用輸入處理 (文字、日期、單選)
     const handleInputChange = (e) => {
@@ -990,23 +989,6 @@ const handleSubmit = async () => {
             };
 
 
-            const PillBtn = ({ active, onClick, children, className = "" }) => (
-                <button type="button" onClick={onClick} 
-                    className={`pill-button flex-1 py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 ${active ? 'active' : 'inactive'} ${className}`}>
-                    {children}
-                </button>
-            );
-
-            const InputGroup = ({ label, error, id, children, required = false }) => (
-                <div className="space-y-1.5" id={id}>
-                    <label className="text-sm font-bold text-soosi-wood ml-1 flex items-center gap-1">
-                        {required && <span className="text-soosi-red text-xs">●</span>}
-                        {label}
-                    </label>
-                    {children}
-                    {error && <div className="field-error"><Icon name="alert-circle" size={12}/>{error}</div>}
-                </div>
-            );
 
             // --- 1. 首頁 View ---
             if (view === 'entry') {
