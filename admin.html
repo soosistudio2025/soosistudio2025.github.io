@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Shiba Studio | 宿洗管理後台</title>
+    <link rel="manifest" href="manifest-admin.json">
+    <meta name="theme-color" content="#6A8D73">
+    <link rel="icon" href="logo.png" type="image/png">
+    <link rel="apple-touch-icon" href="logo.png">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        soosi: { green: '#6A8D73', wood: '#8E6E53', dark: '#3F3F3F' }
+                    },
+                    fontFamily: {
+                        // 設定與前端相同的可愛字體風格
+                        'cute': ['"Fredoka"', '"Microsoft JhengHei"', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 套用可愛字體 */
+        body { 
+            background-color: #f3f4f6; 
+            font-family: "Fredoka", "Microsoft JhengHei", "微軟正黑體", sans-serif;
+            -webkit-tap-highlight-color: transparent; 
+        }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        
+        /* 讓按鈕與卡片更圓潤 */
+        .rounded-cute { border-radius: 1.25rem; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        const { createClient } = supabase;
+
+        const supabaseUrl = 'https://uhrngtsashumvwgzaumm.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVocm5ndHNhc2h1bXZ3Z3phdW1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzMjMxNDUsImV4cCI6MjA4NDg5OTE0NX0.YDopNd9MHsjV9LFsHWyrxFIcWgQ_s0BMJlNSFqQfiTE';
+        const _supabase = createClient(supabaseUrl, supabaseKey);
+
+        const Icon = ({ name, size = 20, className = "" }) => {
+            const pascalName = name.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('');
+            if (window.lucide && window.lucide.icons && window.lucide.icons[pascalName]) {
+                const iconNode = window.lucide.icons[pascalName];
+                const svgElement = window.lucide.createElement(iconNode);
+                svgElement.setAttribute('width', size);
+                svgElement.setAttribute('height', size);
+                if(className) svgElement.setAttribute('class', className);
+                return <span dangerouslySetInnerHTML={{ __html: svgElement.outerHTML }} className="inline-flex items-center" />;
+            }
+            return null;
+        };
+
+        const ACCOUNTS = {
+            admin: { role: 'admin', label: '管理員', email: 'soosi.studio2025@gmail.com', icon: 'shield-check', color: 'bg-soosi-wood' },
+            staff: { role: 'staff', label: '員工', email: 'staff@soosi.com', icon: 'user-circle', color: 'bg-soosi-green' }
+        };
+
+        // --- 1. 登入頁面 ---
+        const Login = () => {
+            const [step, setStep] = useState('select'); 
+            const [selectedAccount, setSelectedAccount] = useState(null);
+            const [password, setPassword] = useState('');
+            const [loading, setLoading] = useState(false);
+
+            const handleSelect = (key) => {
+                setSelectedAccount(ACCOUNTS[key]);
+                setStep('password');
+            };
+
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                const { error } = await _supabase.auth.signInWithPassword({
+                    email: selectedAccount.email,
+                    password: password,
+                });
+                if (error) { alert('登入失敗：密碼錯誤'); setLoading(false); }
+            };
+
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4 font-cute">
+                    <div className="w-full max-w-md bg-white rounded-cute shadow-xl overflow-hidden animate-fade-in border border-gray-200 relative">
+                        
+                        {/* 返回填寫頁按鈕 - 放在白色視窗內左上角 */}
+                        <a href="soosi.html" className="absolute top-4 left-4 z-10 flex items-center gap-1 px-3 py-1.5 bg-white/30 hover:bg-white/50 backdrop-blur-sm rounded-lg text-white font-bold text-xs transition-colors border border-white/20">
+                            <Icon name="chevron-left" size={14} /> 返回填寫頁
+                        </a>
+
+                        <div className="bg-soosi-green p-8 text-center pt-12">
+                            <img src="logo.png" alt="Logo" className="h-16 w-auto mx-auto mb-3 object-contain" onError={(e)=>e.target.style.display='none'} />
+                            <h1 className="text-2xl font-black text-white tracking-wide">Shiba Studio</h1>
+                            <p className="text-green-100 text-sm font-bold mt-1">管理後台登入</p>
+                        </div>
+
+                        <div className="p-8">
+                            {step === 'select' ? (
+                                <div className="space-y-4">
+                                    <p className="text-center text-gray-400 font-bold text-sm mb-6 uppercase tracking-wider">選擇身分</p>
+                                    <button onClick={() => handleSelect('admin')} className="w-full flex items-center gap-4 p-4 rounded-cute border-2 border-gray-100 hover:border-soosi-wood bg-gray-50 hover:bg-orange-50 transition-all group">
+                                        <div className="w-12 h-12 rounded-full bg-soosi-wood text-white flex items-center justify-center shadow-sm"><Icon name="shield-check" size={24} /></div>
+                                        <div className="text-left"><h3 className="text-lg font-bold text-gray-800">管理員</h3><p className="text-xs text-gray-400 font-medium">soosi.studio...</p></div>
+                                        <div className="ml-auto text-gray-300 group-hover:text-soosi-wood"><Icon name="chevron-right" size={20} /></div>
+                                    </button>
+                                    <button onClick={() => handleSelect('staff')} className="w-full flex items-center gap-4 p-4 rounded-cute border-2 border-gray-100 hover:border-soosi-green bg-gray-50 hover:bg-green-50 transition-all group">
+                                        <div className="w-12 h-12 rounded-full bg-soosi-green text-white flex items-center justify-center shadow-sm"><Icon name="user-circle" size={24} /></div>
+                                        <div className="text-left"><h3 className="text-lg font-bold text-gray-800">工作人員</h3><p className="text-xs text-gray-400 font-medium">staff@soosi...</p></div>
+                                        <div className="ml-auto text-gray-300 group-hover:text-soosi-green"><Icon name="chevron-right" size={20} /></div>
+                                    </button>
+                                </div>
+                            ) : (
+                                <form onSubmit={handleLogin} className="space-y-6 animate-fade-in">
+                                    <div className="text-center">
+                                        <div className={`mx-auto w-14 h-14 rounded-full flex items-center justify-center text-white shadow-md ${selectedAccount.color}`}><Icon name={selectedAccount.icon} size={28} /></div>
+                                        <h2 className="text-lg font-bold text-gray-800 mt-3">歡迎回來，{selectedAccount.label}</h2>
+                                    </div>
+                                    <div className="relative">
+                                        <div className="absolute left-4 top-3.5 text-gray-400"><Icon name="key" size={20} /></div>
+                                        <input type="password" value={password} onChange={e=>setPassword(e.target.value)}
+                                            className="w-full pl-12 pr-4 py-3 bg-gray-50 border-2 border-gray-100 rounded-cute focus:border-soosi-green outline-none font-bold text-gray-700"
+                                            placeholder="請輸入密碼" autoFocus required />
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <button type="button" onClick={() => { setStep('select'); setPassword(''); }} className="px-4 py-3 rounded-cute border-2 border-gray-200 text-gray-500 font-bold hover:bg-gray-50"><Icon name="arrow-left" size={20} /></button>
+                                        <button disabled={loading} className={`flex-1 py-3 rounded-cute font-bold text-white shadow-md transition-all ${selectedAccount.color} disabled:opacity-50`}>{loading ? <Icon name="loader-2" className="animate-spin" /> : '登入'}</button>
+                                    </div>
+                                </form>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 數據統計 ---
+        const DashboardStats = ({ orders }) => {
+            const today = new Date().toISOString().split('T')[0];
+            const todayOrders = orders.filter(o => o.service_date === today).length;
+            const pendingOrders = orders.filter(o => o.status === 'pending').length;
+            return (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6 font-cute">
+                    <div className="bg-white p-4 rounded-cute shadow-sm border-l-4 border-l-soosi-green flex flex-col items-center justify-center">
+                        <div className="text-gray-400 text-xs font-bold mb-1">今日預約</div>
+                        <div className="text-2xl font-black text-gray-800">{todayOrders}</div>
+                    </div>
+                    <div className="bg-white p-4 rounded-cute shadow-sm border-l-4 border-l-orange-400 flex flex-col items-center justify-center">
+                        <div className="text-gray-400 text-xs font-bold mb-1">待處理</div>
+                        <div className="text-2xl font-black text-gray-800">{pendingOrders}</div>
+                    </div>
+                    <div className="bg-white p-4 rounded-cute shadow-sm border-l-4 border-l-soosi-wood hidden md:flex flex-col items-center justify-center">
+                        <div className="text-gray-400 text-xs font-bold mb-1">總預約數</div>
+                        <div className="text-2xl font-black text-gray-800">{orders.length}</div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 修改密碼 ---
+        const ChangePasswordModal = ({ isOpen, onClose, currentUserEmail }) => {
+            if (!isOpen) return null;
+            const [target, setTarget] = useState('admin');
+            const [oldPwd, setOldPwd] = useState('');
+            const [newPwd, setNewPwd] = useState('');
+            const [confirmPwd, setConfirmPwd] = useState('');
+            const [loading, setLoading] = useState(false);
+
+            useEffect(() => {
+                setTarget(currentUserEmail === ACCOUNTS.staff.email ? 'staff' : 'admin');
+            }, [currentUserEmail]);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                if (newPwd !== confirmPwd) { alert('新密碼二次確認不符'); return; }
+                setLoading(true);
+                try {
+                    const targetEmail = ACCOUNTS[target].email;
+                    const { error: signErr } = await _supabase.auth.signInWithPassword({ email: targetEmail, password: oldPwd });
+                    if (signErr) throw new Error('舊密碼錯誤');
+                    const { error: updErr } = await _supabase.auth.updateUser({ password: newPwd });
+                    if (updErr) throw updErr;
+                    alert('修改成功，請重新登入');
+                    await _supabase.auth.signOut();
+                    window.location.reload();
+                } catch (err) { alert(err.message); setLoading(false); }
+            };
+
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 font-cute">
+                    <div className="bg-white rounded-cute w-full max-w-sm shadow-2xl overflow-hidden animate-fade-in">
+                        <div className="bg-soosi-wood p-4 flex justify-between items-center text-white">
+                            <h3 className="font-bold flex items-center gap-2"><Icon name="lock" size={16} /> 修改密碼</h3>
+                            <button onClick={onClose}><Icon name="x" size={18} /></button>
+                        </div>
+                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                            {currentUserEmail === ACCOUNTS.admin.email && (
+                                <div className="flex bg-gray-100 p-1 rounded-lg mb-4">
+                                    <button type="button" onClick={()=>setTarget('admin')} className={`flex-1 py-2 text-xs font-bold rounded-md ${target === 'admin' ? 'bg-white shadow text-soosi-wood' : 'text-gray-400'}`}>改管理員</button>
+                                    <button type="button" onClick={()=>setTarget('staff')} className={`flex-1 py-2 text-xs font-bold rounded-md ${target === 'staff' ? 'bg-white shadow text-soosi-green' : 'text-gray-400'}`}>改員工</button>
+                                </div>
+                            )}
+                            {[{l:'舊密碼',v:oldPwd,s:setOldPwd},{l:'新密碼',v:newPwd,s:setNewPwd},{l:'確認新密碼',v:confirmPwd,s:setConfirmPwd}].map((f,i)=>(
+                                <div key={i}>
+                                    <label className="text-xs font-bold text-gray-500 mb-1 block">{f.l}</label>
+                                    <input type="password" value={f.v} onChange={e=>f.s(e.target.value)} className="w-full p-3 bg-gray-50 border rounded-xl focus:border-soosi-wood outline-none" required />
+                                </div>
+                            ))}
+                            <button disabled={loading} className="w-full bg-soosi-wood text-white font-bold py-3 rounded-xl mt-2">確認修改</button>
+                        </form>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 訂單卡片 ---
+        const OrderCard = ({ order, onStatusChange }) => {
+            const isBoarding = order.type === 'boarding';
+            const statusConfig = {
+                'pending': { color: 'bg-yellow-100 text-yellow-700' },
+                'confirmed': { color: 'bg-blue-100 text-blue-700' },
+                'completed': { color: 'bg-gray-100 text-gray-500' },
+                'cancelled': { color: 'bg-red-50 text-red-400' }
+            };
+            return (
+                <div className={`bg-white rounded-cute p-5 shadow-sm border-l-4 ${isBoarding ? 'border-l-indigo-500' : 'border-l-soosi-green'} font-cute`}>
+                    <div className="flex justify-between items-start mb-3">
+                        <div className="flex items-center gap-2">
+                            <span className={`px-2 py-1 rounded-md text-[10px] font-bold ${isBoarding ? 'bg-indigo-50 text-indigo-600' : 'bg-green-50 text-green-600'}`}>{isBoarding ? '🏠 住宿' : '✂️ 美容'}</span>
+                            <span className="text-xs font-bold text-gray-400">{new Date(order.service_date).toLocaleDateString()}</span>
+                        </div>
+                        <div className="relative">
+                             <select value={order.status} onChange={(e) => onStatusChange(order.id, order.type, e.target.value)} className={`appearance-none pl-3 pr-8 py-1 rounded-lg text-xs font-bold border-0 cursor-pointer outline-none ${statusConfig[order.status]?.color}`}>
+                                <option value="pending">待確認</option><option value="confirmed">已確認</option><option value="completed">已完成</option><option value="cancelled">取消</option>
+                            </select>
+                            <div className="absolute right-2 top-1.5 pointer-events-none opacity-50"><Icon name="chevron-down" size={12} /></div>
+                        </div>
+                    </div>
+                    <div className="flex gap-4 items-center mb-4">
+                        <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-lg font-black text-gray-400">{order.pet_name[0]}</div>
+                        <div>
+                            <h3 className="font-black text-gray-800 text-lg flex items-center gap-2">{order.pet_name} <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border">{order.breed}</span></h3>
+                            <div className="text-xs text-gray-500 font-medium flex items-center gap-2 mt-1"><span>{order.owner_name}</span><span className="text-gray-300">|</span><span>{order.phone}</span></div>
+                        </div>
+                    </div>
+                    {order.service_items && order.service_items.length > 0 && (
+                        <div className="bg-gray-50 p-3 rounded-lg mb-3 text-xs font-medium text-gray-600 space-y-1">
+                            {order.service_items.map((item, idx) => <div key={idx} className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-soosi-green"></div>{item}</div>)}
+                        </div>
+                    )}
+                    <div className="flex justify-between items-center pt-2 border-t border-gray-100 mt-2">
+                        <div className="font-black text-soosi-wood text-lg">${order.estimated_price}</div>
+                        <button className="text-xs text-gray-400 hover:text-soosi-green flex items-center gap-1 font-bold transition-all">詳情 <Icon name="chevron-right" size={14} /></button>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 主面板 ---
+        const AdminPanel = ({ session, userRole, onLogout }) => {
+            const [orders, setOrders] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [filter, setFilter] = useState('all');
+            const [showPwdModal, setShowPwdModal] = useState(false);
+
+            const fetchOrders = async () => {
+                setLoading(true);
+                const { data, error } = await _supabase.from('admin_contracts_view').select('*').order('service_date', { ascending: true });
+                if (!error) setOrders(data || []);
+                setLoading(false);
+            };
+
+            const handleStatusChange = async (id, type, newStatus) => {
+                setOrders(prev => prev.map(o => o.id === id ? {...o, status: newStatus} : o));
+                const { error } = await _supabase.from(type === 'boarding' ? 'boarding_contracts' : 'grooming_contracts').update({ status: newStatus }).eq('id', id);
+                if(error) { alert('更新失敗'); fetchOrders(); }
+            };
+
+            useEffect(() => {
+                fetchOrders();
+                const channel = _supabase.channel('any').on('postgres_changes', { event: '*', schema: 'public' }, () => fetchOrders()).subscribe();
+                return () => _supabase.removeChannel(channel);
+            }, []);
+
+            const filteredOrders = orders.filter(o => filter === 'all' ? (o.status !== 'completed' && o.status !== 'cancelled') : o.status === filter);
+
+            return (
+                <div className="min-h-screen pb-24 bg-gray-50 font-cute">
+                    <div className="bg-white shadow-sm sticky top-0 z-20 border-b border-gray-100 animate-fade-in">
+                        <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <img src="logo.png" className="w-8 h-8 rounded-md object-contain" onError={(e)=>e.target.style.display='none'} />
+                                <h1 className="text-lg font-black text-gray-800 tracking-tight">宿洗後台</h1>
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold text-white ${userRole === 'admin' ? 'bg-soosi-wood' : 'bg-soosi-green'}`}>{userRole === 'admin' ? '管理員' : '員工'}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <button onClick={fetchOrders} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"><div className={loading?'animate-spin':''}><Icon name="rotate-cw" size={20} /></div></button>
+                                {userRole === 'admin' && <button onClick={() => setShowPwdModal(true)} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"><Icon name="key" size={20} /></button>}
+                                <button onClick={onLogout} className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg"><Icon name="log-out" size={20} /></button>
+                            </div>
+                        </div>
+                        <div className="md:hidden px-4 pb-3 flex gap-2 overflow-x-auto hide-scrollbar">
+                             {['all', 'pending', 'confirmed', 'completed', 'cancelled'].map(f => (
+                                <button key={f} onClick={() => setFilter(f)} className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold border ${filter === f ? 'bg-soosi-green text-white border-soosi-green' : 'bg-white text-gray-500 border-gray-200'}`}>{f === 'all' ? '待處理' : f}</button>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="max-w-6xl mx-auto px-4 py-6">
+                        {!loading && <DashboardStats orders={orders} />}
+                        {loading && orders.length === 0 ? <div className="flex justify-center py-20 text-gray-400 gap-2 items-center"><Icon name="loader-2" className="animate-spin" /> 讀取中...</div> : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {filteredOrders.length > 0 ? filteredOrders.map(order => <OrderCard key={order.id} order={order} onStatusChange={handleStatusChange} />) : <div className="col-span-full text-center py-20 bg-white rounded-cute border border-dashed border-gray-200"><Icon name="inbox" size={32} className="mx-auto text-gray-200 mb-2"/><p className="text-gray-400 text-sm font-bold">目前沒有預約資料</p></div>}
+                            </div>
+                        )}
+                    </div>
+                    <ChangePasswordModal isOpen={showPwdModal} onClose={() => setShowPwdModal(false)} currentUserEmail={session.user.email} />
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [session, setSession] = useState(null);
+            const [userRole, setUserRole] = useState('staff'); 
+            useEffect(() => {
+                _supabase.auth.getSession().then(({ data: { session } }) => { setSession(session); if(session) checkRole(session.user.email); });
+                const { data: { subscription } } = _supabase.auth.onAuthStateChange((_event, session) => { setSession(session); if(session) checkRole(session.user.email); });
+                return () => subscription.unsubscribe();
+            }, []);
+            const checkRole = (email) => { setUserRole(email === ACCOUNTS.admin.email ? 'admin' : 'staff'); };
+            const handleLogout = async () => { await _supabase.auth.signOut(); };
+            return session ? <AdminPanel session={session} userRole={userRole} onLogout={handleLogout} /> : <Login />;
+        };
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
