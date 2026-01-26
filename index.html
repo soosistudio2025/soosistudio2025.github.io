@@ -64,6 +64,25 @@
             -webkit-font-smoothing: antialiased;
             -webkit-tap-highlight-color: transparent;
         }
+/* 在 <style> 標籤內添加 */
+input, textarea, select {
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+/* 防止點擊其他區域時失去焦點 */
+body {
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* 允許文字輸入區域的文字選擇 */
+input, textarea {
+    -webkit-user-select: text;
+    user-select: text;
+}
 
         /* 首頁 Glass Card */
         .glass-card {
@@ -582,7 +601,20 @@ const PriceListPage = ({ onBack }) => {
             }
         });
     };
-            
+ const [logoClickCount, setLogoClickCount] = useState(0);
+// 添加處理函數
+const handleLogoClick = () => {
+    setLogoClickCount(prev => {
+        const newCount = prev + 1;
+        if (newCount === 2) {
+            window.location.href = '/admin.html';  // 跳轉到 admin 頁面
+            return 0;  // 重置計數
+        }
+        // 設置定時器，如果 500ms 內沒有第二次點擊就重置計數
+        setTimeout(() => setLogoClickCount(0), 500);
+        return newCount;
+    });
+};           
 const [view, setView] = useState('entry'); 
             const [isBoarding, setIsBoarding] = useState(false);
             const [isSubmitting, setIsSubmitting] = useState(false);
@@ -984,12 +1016,16 @@ const handleSubmit = async () => {
                         <div className="bg-blob w-80 h-80 bg-soosi-wood/10 bottom-[-10%] right-[-10%]"></div>
 
                         <div className="w-full max-w-lg mx-auto relative z-10 flex flex-col items-center">
-                            <div className="mb-10 relative group cursor-default">
-                                <div className="absolute inset-0 bg-white/40 rounded-full blur-2xl transform scale-110"></div>
-                                <img src="logo.png" alt="宿洗 Soosi Pet" className="w-56 md:w-64 h-auto relative z-10 drop-shadow-sm transform group-hover:scale-105 transition-transform duration-500" />
-                                <div className="absolute -right-4 -top-2 bg-soosi-accent text-soosi-dark text-xs font-black px-3 py-1 rounded-full rotate-12 shadow-sm">特寵業字第 S1140030號</div>
-                            </div>
-                            <div className="text-center mb-10 space-y-2">
+<div className="mb-10 relative group cursor-default">
+    <div className="absolute inset-0 bg-white/40 rounded-full blur-2xl transform scale-110"></div>
+    <img 
+        src="logo.png" 
+        alt="宿洗 Soosi Pet" 
+        className="w-56 md:w-64 h-auto relative z-10 drop-shadow-sm transform group-hover:scale-105 transition-transform duration-500 cursor-pointer"
+        onClick={handleLogoClick}
+    />
+    <div className="absolute -right-4 -top-2 bg-soosi-accent text-soosi-dark text-xs font-black px-3 py-1 rounded-full rotate-12 shadow-sm">特寵業字第 S1140030號</div>
+</div>                            <div className="text-center mb-10 space-y-2">
                                 <h1 className="text-2xl font-black text-soosi-dark tracking-wide">宿洗寵物 <span className="text-soosi-green">Soosi Pet</span></h1>
                                 <p className="text-soosi-wood font-medium text-sm tracking-widest">美容 | 旅館 | 安親 | 選品</p>
                             </div>
