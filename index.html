@@ -2261,39 +2261,44 @@ const handleSubmit = async () => {
 
                                                     const allServices = [...baseServices, ...extraServices, ...fixedServices];
 
-                                                    return allServices.map((item) => (
-                                                        <label key={item.id} className={`cursor-pointer relative p-4 rounded-xl border-2 transition-all group bg-white ${
+return allServices.map((item) => (
+                                                        <label key={item.id} className={`relative p-5 rounded-xl border-2 transition-all group ${
+                                                            isCustomerMode ? 'cursor-default' : 'cursor-pointer' // 🔒 鎖定時滑鼠變更
+                                                        } ${
                                                             formData.service_items.includes(item.id) 
-                                                                ? (item.highlight ? 'border-soosi-wood ring-1 ring-soosi-wood shadow-sm' : 'border-soosi-green ring-1 ring-soosi-green shadow-sm') 
-                                                                : 'border-gray-100 hover:border-soosi-green/30'
+                                                                ? (item.highlight ? 'border-soosi-wood bg-soosi-wood/10 shadow-lg' : 'border-soosi-green bg-soosi-green/5 shadow-md') 
+                                                                : 'border-gray-200 bg-white'
+                                                        } ${
+                                                            isCustomerMode && !formData.service_items.includes(item.id) ? 'opacity-50 grayscale' : '' // 🔒 沒選到的項目變淡
                                                         }`}>
                                                             <div className="flex items-start gap-3">
-                                                                <div className={`mt-0.5 w-8 h-8 rounded-full flex items-center justify-center transition-colors shrink-0 ${
+                                                                <div className={`mt-0.5 w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
                                                                     formData.service_items.includes(item.id) 
                                                                         ? (item.highlight ? 'bg-soosi-wood text-white' : 'bg-soosi-green text-white') 
                                                                         : 'bg-gray-100 text-gray-400'
                                                                 }`}>
-                                                                    <Icon name={item.icon} size={16} />
+                                                                    <Icon name={item.icon} size={20} className={formData.service_items.includes(item.id) ? "text-white" : ""} />
                                                                 </div>
                                                                 <div className="flex-1">
-                                                                    <div className={`font-bold text-sm mb-0.5 ${formData.service_items.includes(item.id) ? 'text-soosi-dark' : 'text-gray-600'}`}>{item.title}</div>
-                                                                    {item.desc && <div className="text-[10px] text-gray-400 leading-tight">{item.desc}</div>}
-                                                                </div>
-                                                                <input 
-                                                                    type="checkbox" 
-                                                                    className="hidden" 
-                                                                    checked={formData.service_items.includes(item.id)} 
-                                                                    onChange={(e) => {
-                                                                        if (e.target.checked) toggleArray('service_items', item.id);
-                                                                        else toggleArray('service_items', item.id);
-                                                                    }}
-                                                                />
-                                                                <div className={`w-5 h-5 rounded border flex items-center justify-center ${
-                                                                    formData.service_items.includes(item.id) ? 'bg-soosi-wood border-soosi-wood text-white' : 'border-gray-300 bg-white'
-                                                                }`}>
-                                                                    {formData.service_items.includes(item.id) && <Icon name="check" size={12}/>}
+                                                                    <div className={`font-bold text-base mb-1 ${formData.service_items.includes(item.id) ? (item.highlight ? 'text-soosi-wood' : 'text-soosi-green') : 'text-soosi-dark'}`}>{item.title}</div>
+                                                                    <div className={`text-xs leading-relaxed ${formData.service_items.includes(item.id) ? 'text-gray-600' : 'text-gray-400'}`}>{item.desc}</div>
                                                                 </div>
                                                             </div>
+                                                            {/* 🔒 關鍵修改：加入 disabled 屬性 */}
+                                                            <input 
+                                                                type="checkbox" 
+                                                                className="hidden" 
+                                                                disabled={isCustomerMode} 
+                                                                checked={formData.service_items.includes(item.id)} 
+                                                                onChange={(e) => {
+                                                                    if (isCustomerMode) return;
+                                                                    if (e.target.checked) {
+                                                                        setFormData(prev => ({ ...prev, service_items: [...prev.service_items, item.id] }));
+                                                                    } else {
+                                                                        setFormData(prev => ({ ...prev, service_items: prev.service_items.filter(id => id !== item.id) }));
+                                                                    }
+                                                                }}
+                                                            />
                                                         </label>
                                                     ));
                                                 })()}
@@ -2319,20 +2324,26 @@ const handleSubmit = async () => {
                                                         { id: 'spa_mud_exfoliate', title: '去角質泥浴', price: '$600UP' },
                                                         { id: 'spa_bubble', title: '粉紅泡泡浴', price: '$300UP' },
                                                         { id: 'spa_volcano', title: '摩洛哥火山泥', price: '$300UP' },
-                                                    ].map(spa => (
-                                                        <label key={spa.id} className={`flex flex-col p-2 rounded-lg border cursor-pointer transition-all ${
+].map(spa => (
+                                                        <label key={spa.id} className={`flex flex-col p-2 rounded-lg border transition-all ${
+                                                            isCustomerMode ? 'cursor-default' : 'cursor-pointer' // 🔒 鎖定游標
+                                                        } ${
                                                             formData.service_items.includes(spa.id) 
                                                             ? 'bg-soosi-wood/5 border-soosi-wood' 
-                                                            : 'bg-white border-gray-100 hover:border-soosi-wood/30'
+                                                            : 'bg-white border-gray-100'
+                                                        } ${
+                                                            isCustomerMode && !formData.service_items.includes(spa.id) ? 'opacity-40' : '' // 🔒 沒選到的變淡
                                                         }`}>
                                                             <div className="flex justify-between items-start mb-1">
+                                                                {/* 🔒 關鍵修改：加入 disabled */}
                                                                 <input 
                                                                     type="checkbox" 
+                                                                    disabled={isCustomerMode}
                                                                     className="accent-soosi-wood w-3 h-3 mt-0.5" 
                                                                     checked={formData.service_items.includes(spa.id)}
                                                                     onChange={(e) => {
-                                                                        if (e.target.checked) toggleArray('service_items', spa.id);
-                                                                        else toggleArray('service_items', spa.id);
+                                                                        if (isCustomerMode) return;
+                                                                        toggleArray('service_items', spa.id);
                                                                     }}
                                                                 />
                                                                 <span className="text-[10px] font-bold text-soosi-wood bg-soosi-wood/10 px-1 py-0.5 rounded scale-90 origin-right">{spa.price}</span>
@@ -2344,17 +2355,20 @@ const handleSubmit = async () => {
                                             </div>
 
                                             {/* 其他項目輸入框 */}
-                                            {formData.service_items.includes('other') && (
-                                                <div className="animate-in fade-in">
+{formData.service_items.includes('other') && (
+                                            <div className="mt-4 animate-in fade-in">
+                                                <InputGroup label="請詳細說明其他項目" required error={errors.service_items_other} id="service_items_other">
                                                     <textarea 
                                                         value={formData.service_items_other || ''} 
+                                                        disabled={isCustomerMode} // 🔒 鎖定
                                                         onChange={(e) => handleChange('service_items_other', e.target.value)}
-                                                        placeholder="請說明其他美容需求..."
-                                                        className="w-full cute-input px-3 py-2 text-sm resize-none"
-                                                        rows="2"
+                                                        placeholder="例如：只剃腳底、只剪指甲..."
+                                                        className={`w-full cute-input px-4 py-3 resize-none ${isCustomerMode ? 'bg-gray-100 text-gray-500' : ''}`}
+                                                        rows="3"
                                                     />
-                                                </div>
-                                            )}
+                                                </InputGroup>
+                                            </div>
+                                        )}
                                         </div>
                                     )}
                                 </div>
@@ -3332,7 +3346,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
             window.addEventListener('load', async () => {
                 try {
 // 1. 註冊 Service Worker (更新至 v=)
-                    const registration = await navigator.serviceWorker.register('./sw.js?v=5');
+                    const registration = await navigator.serviceWorker.register('./sw.js?v=6');
                     console.log('Service Worker 註冊成功');
 
                     // 2. 監聽更新：當偵測到 sw.js 內容有變動時
