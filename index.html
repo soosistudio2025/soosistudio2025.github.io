@@ -706,61 +706,63 @@ const [view, setView] = useState('entry');
             const [errors, setErrors] = useState({});
 const [lineConfirmed, setLineConfirmed] = useState(false);
             
-            // 新增：客人模式狀態 (預設為 false，網址有參數時變 true)
+            // 1. 新增：客人模式狀態與鎖定邏輯
             const [isCustomerMode, setIsCustomerMode] = useState(false);
 
-            // 新增：初始化檢查網址參數 (客人打開連結時執行)
+            // 2. 新增：初始化檢查網址參數 (當客人點開「特定連結」時執行)
             useEffect(() => {
                 const params = new URLSearchParams(window.location.search);
                 const mode = params.get('mode');
                 
                 if (mode === 'customer') {
-                    setIsCustomerMode(true); // 啟動鎖定模式
-                    setView('form'); // 直接進入表單頁
+                    setIsCustomerMode(true); // 進入鎖定模式
+                    setView('form'); // 直接跳到填寫頁面
                     
-                    // 1. 判斷是美容還是住宿
+                    // 判斷是美容還是住宿
                     const viewType = params.get('type');
                     if (viewType === 'boarding') setIsBoarding(true);
                     else setIsBoarding(false);
 
-                    // 2. 帶入日期與時間
                     const newConfig = {};
+                    // 帶入預約時間
                     if (params.get('date')) newConfig.bookingDate = params.get('date');
                     if (params.get('time')) newConfig.bookingTime = params.get('time');
                     if (params.get('in')) newConfig.checkInDate = params.get('in');
                     if (params.get('out')) newConfig.checkOutDate = params.get('out');
 
-                    // 3. 帶入金額相關
-                    if (params.get('price')) newConfig.estimated_price = params.get('price'); // 總金額
-                    if (params.get('ppn')) newConfig.price_per_night = params.get('ppn'); // 房價
-                    if (params.get('hol')) newConfig.holiday_surcharge = params.get('hol'); // 假日加價
-                    if (params.get('bgp')) newConfig.boarding_grooming_price = params.get('bgp'); // 住宿美容費
+                    // 帶入金額設定
+                    if (params.get('price')) newConfig.estimated_price = params.get('price'); 
+                    if (params.get('ppn')) newConfig.price_per_night = params.get('ppn'); 
+                    if (params.get('hol')) newConfig.holiday_surcharge = params.get('hol'); 
+                    if (params.get('bgp')) newConfig.boarding_grooming_price = params.get('bgp'); 
                     
-                    // 4. 帶入服務項目 (逗號分隔轉回陣列)
+                    // 帶入服務項目
                     if (params.get('items')) {
                         newConfig.service_items = params.get('items').split(',');
                     }
                     if (params.get('other')) newConfig.service_items_other = decodeURIComponent(params.get('other'));
-                    
-                    // 5. 住宿相關設定
                     if (params.get('addGrooming')) newConfig.addGrooming = params.get('addGrooming') === 'true';
 
-                    // 更新表單資料
+                    // 一次性更新所有帶入的資料
                     setFormData(prev => ({ ...prev, ...newConfig }));
                 }
             }, []);
 
-            // 新增：產生連結功能 (店家用)
-            const generateLink = () => {
+            // 3. 新增：產生鎖定連結功能 (帶有密碼保護)
+            const generateLockedLink = () => {
+                const password = prompt("請輸入店家管理密碼：");
+                if (password !== "soosi") { // 你可以修改成你要的密碼
+                    alert("密碼錯誤，無法產生連結。");
+                    return;
+                }
+
                 const params = new URLSearchParams();
                 params.set('mode', 'customer');
                 
-                // 判斷當前模式
                 if (isBoarding) {
                     params.set('type', 'boarding');
                     if (formData.checkInDate) params.set('in', formData.checkInDate);
                     if (formData.checkOutDate) params.set('out', formData.checkOutDate);
-                    // 住宿金額細項
                     if (formData.price_per_night) params.set('ppn', formData.price_per_night);
                     if (formData.holiday_surcharge) params.set('hol', formData.holiday_surcharge);
                     if (formData.addGrooming) params.set('addGrooming', formData.addGrooming);
@@ -771,29 +773,19 @@ const [lineConfirmed, setLineConfirmed] = useState(false);
                     if (formData.bookingTime) params.set('time', formData.bookingTime);
                 }
 
-                // 共通欄位：服務項目與總金額
-                if (formData.service_items && formData.service_items.length > 0) {
-                    params.set('items', formData.service_items.join(','));
-                }
-                if (formData.service_items_other) {
-                    params.set('other', encodeURIComponent(formData.service_items_other));
-                }
-                if (formData.estimated_price) {
-                    params.set('price', formData.estimated_price);
-                }
+                if (formData.service_items.length > 0) params.set('items', formData.service_items.join(','));
+                if (formData.service_items_other) params.set('other', encodeURIComponent(formData.service_items_other));
+                if (formData.estimated_price) params.set('price', formData.estimated_price);
 
-                // 產生連結並複製
-                const baseUrl = window.location.href.split('?')[0].split('#')[0];
-                const finalUrl = `${baseUrl}?${params.toString()}`;
+                const finalUrl = `${window.location.href.split('?')[0].split('#')[0]}?${params.toString()}`;
                 
                 navigator.clipboard.writeText(finalUrl).then(() => {
-                    alert("✅ 連結已複製！\n\n此連結已鎖定「日期、服務項目、金額」。\n請傳送給客人填寫基本資料與簽名。");
-                }).catch(err => {
-                    console.error("複製失敗", err);
-                    prompt("請手動複製連結：", finalUrl);
+                    alert("✅ 連結已複製！\n\n此連結已鎖定你剛才填寫的日期、項目與金額。\n傳給客人後，客人將無法修改這些部分。");
+                }).catch(() => {
+                    prompt("複製失敗，請手動複製網址：", finalUrl);
                 });
             };
-
+            
             // Signature State
             const [showFullSig, setShowFullSig] = useState(false);
             const [realtimeSig, setRealtimeSig] = useState(null);
@@ -1626,20 +1618,20 @@ const handleSubmit = async () => {
                                                                 <div className={`text-xs leading-relaxed ${formData.service_items.includes(item.id) ? 'text-gray-600' : 'text-gray-400'}`}>{item.desc}</div>
                                                             </div>
                                                         </div>
-                                                        <input 
-                                                            type="checkbox" 
-                                                            className="hidden" 
-                                                            disabled={isCustomerMode} // 鎖定
-                                                            checked={formData.service_items.includes(item.id)} 
-                                                            onChange={(e) => {
-                                                                if (e.target.checked) {
-                                                                    setFormData(prev => ({ ...prev, service_items: [...prev.service_items, item.id] }));
-                                                                } else {
-                                                                    setFormData(prev => ({ ...prev, service_items: prev.service_items.filter(id => id !== item.id) }));
-                                                                }
-                                                                if (errors.service_items) setErrors(prev => ({ ...prev, service_items: null }));
-                                                            }}
-                                                        />
+<input 
+    type="checkbox" 
+    className="hidden" 
+    disabled={isCustomerMode} // 加入鎖定
+    checked={formData.service_items.includes(item.id)} 
+    onChange={(e) => {
+        if (isCustomerMode) return; // 安全保護
+        if (e.target.checked) {
+            setFormData(prev => ({ ...prev, service_items: [...prev.service_items, item.id] }));
+        } else {
+            setFormData(prev => ({ ...prev, service_items: prev.service_items.filter(id => id !== item.id) }));
+        }
+    }}
+/>
                                                     </label>
                                                 ));
                                             })()}
@@ -1713,15 +1705,15 @@ const handleSubmit = async () => {
                                         <div className="bg-white p-4 rounded-2xl border-2 border-soosi-wood/20 shadow-sm space-y-4">
                                             <div className="flex items-center justify-center gap-1">
                                                 <span className="text-xl font-black text-soosi-wood shrink-0">$NT</span>
-                                                <input 
-                                                    type="number" 
-                                                    name="estimated_price"
-                                                    disabled={isCustomerMode} // 鎖定
-                                                    value={formData.estimated_price || ''} 
-                                                    onChange={handleInputChange}
-                                                    placeholder="0" 
-                                                    className="w-32 cute-input px-2 py-2 text-3xl font-mono font-bold text-center text-soosi-wood placeholder:text-gray-300 border-0 focus:ring-0 focus:bg-soosi-green/5"
-                                                />
+<input 
+    type="number" 
+    name="estimated_price"
+    disabled={isCustomerMode} // 加入鎖定
+    value={formData.estimated_price || ''} 
+    onChange={handleInputChange}
+    placeholder="0" 
+    className={`w-32 cute-input px-2 py-2 text-3xl font-mono font-bold text-center ${isCustomerMode ? 'bg-gray-100 cursor-not-allowed text-gray-400' : 'text-soosi-wood'} border-0 focus:ring-0`}
+/>
                                                 <span className="text-xl font-black text-soosi-wood shrink-0">元</span>
                                             </div>
                                             
@@ -2479,19 +2471,23 @@ const handleSubmit = async () => {
                             {errors.signature && <div className="field-error"><Icon name="alert-circle" size={12}/>{errors.signature}</div>}
                         </div>
 
-{/* Submit */}
-                        <button onClick={handleSubmit} disabled={isSubmitting || !realtimeSig} className="w-full py-5 bg-soosi-dark text-white rounded-[2rem] font-black text-lg shadow-xl hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:transform-none">
-                            {isSubmitting ? <Icon name="loader-2" className="animate-spin"/> : <Icon name="send" />}
+{/* 提交按鈕 */}
+                        <button onClick={handleSubmit} disabled={isSubmitting || !realtimeSig} className="w-full py-5 bg-soosi-dark text-white rounded-[2rem] font-black text-lg shadow-xl ...">
                             {isSubmitting ? '提交中...' : '確認並提交數位契約'}
                         </button>
 
-                        {/* 店家專用：產生連結按鈕 (只有非客人模式才看得到) */}
+                        {/* 店家管理工具：產生連結 (僅非客人模式顯示) */}
                         {!isCustomerMode && (
-                            <div className="pt-4 border-t border-gray-200 mt-4">
-                                <button onClick={generateLink} className="w-full py-3 bg-white border-2 border-soosi-green text-soosi-green rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-soosi-green/5 transition-all">
+                            <div className="pt-6 border-t border-gray-200 mt-6 animate-in fade-in duration-700">
+                                <button 
+                                    onClick={generateLockedLink} 
+                                    className="w-full py-3 bg-white border-2 border-soosi-green text-soosi-green rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-soosi-green/5 transition-all active:scale-95"
+                                >
                                     <Icon name="link" size={18}/> 產生鎖定金額連結 (傳給客人)
                                 </button>
-                                <p className="text-center text-xs text-gray-400 mt-2">填寫完「日期、服務、金額」後點擊此處，可產生連結給客人簽名。</p>
+                                <p className="text-center text-[10px] text-gray-400 mt-2 font-medium">
+                                    💡 店家小提醒：先填好日期與金額後點擊此處，可產生專屬連結發送給客人。
+                                </p>
                             </div>
                         )}
                         </section>
