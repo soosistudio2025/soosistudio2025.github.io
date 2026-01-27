@@ -3008,7 +3008,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
             window.addEventListener('load', async () => {
                 try {
 // 1. 註冊 Service Worker (更新至 v=3)
-                    const registration = await navigator.serviceWorker.register('./sw.js?v=3');
+                    const registration = await navigator.serviceWorker.register('./sw.js?v=4');
                     console.log('Service Worker 註冊成功');
 
                     // 2. 監聽更新：當偵測到 sw.js 內容有變動時
@@ -3031,3 +3031,4 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
     </script>
 </body>
 </html>
+
