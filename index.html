@@ -229,58 +229,27 @@ const { useState, useEffect, useRef, useMemo } = React;
         };
 
 // Modal Component (強制閱讀到底)
+// 1. 條款視窗
         const TermsModal = ({ isOpen, onClose, title, children, onAgree }) => {
             const contentRef = useRef(null);
             const [canAgree, setCanAgree] = useState(false);
-
+            const handleScroll = (e) => {
+                const { scrollTop, scrollHeight, clientHeight } = e.target;
+                if (scrollHeight - scrollTop - clientHeight < 50) setCanAgree(true);
+            };
             useEffect(() => {
                 if (isOpen) {
                     setCanAgree(false);
                     document.body.style.overflow = 'hidden';
-                    // 內容少的時候直接允許
                     setTimeout(() => {
-                        if (contentRef.current && contentRef.current.scrollHeight <= contentRef.current.clientHeight + 50) setCanAgree(true);
-                    }, 500);
-                } else {
-                    document.body.style.overflow = '';
-                }
+                        if (contentRef.current && contentRef.current.scrollHeight <= contentRef.current.clientHeight + 10) setCanAgree(true);
+                    }, 400);
+                } else { document.body.style.overflow = ''; }
             }, [isOpen]);
-
-// 自動更新與偵測腳本
-            const handleScroll = (e) => {
-                const { scrollTop, scrollHeight, clientHeight } = e.target;
-                // 當距離底部小於 50px 時，自動更新按鈕為可點擊狀態
-                if (scrollHeight - scrollTop - clientHeight < 50) {
-                    setCanAgree(true);
-                }
-            };
-
-            // 視窗開啟時的自動校準邏輯
-            useEffect(() => {
-                if (isOpen) {
-                    setCanAgree(false); // 每次開啟重新計算
-                    document.body.style.overflow = 'hidden'; 
-                    
-                    // 延遲偵測：若內容本身就比視窗短，自動解鎖
-                    const timer = setTimeout(() => {
-                        if (contentRef.current) {
-                            const { scrollHeight, clientHeight } = contentRef.current;
-                            if (scrollHeight <= clientHeight + 10) {
-                                setCanAgree(true);
-                            }
-                        }
-                    }, 400); 
-                    return () => clearTimeout(timer);
-                } else {
-                    document.body.style.overflow = '';
-                }
-            }, [isOpen]);
-
             if (!isOpen) return null;
-
-return (
-                <div className="fixed inset-0 z-[150] bg-soosi-dark/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-                    <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            return (
+                <div className="fixed inset-0 z-[150] bg-soosi-dark/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+                    <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95">
                         <div className="px-6 py-4 bg-soosi-green text-white flex justify-between items-center shrink-0">
                             <h3 className="text-lg font-black tracking-wider flex items-center gap-2"><Icon name="file-text" size={18}/> {title}</h3>
                             <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors"><Icon name="x" size={20} /></button>
@@ -292,10 +261,42 @@ return (
                         <div className="p-5 bg-white border-t-2 border-dashed border-gray-100 shrink-0">
                             {!canAgree && <div className="text-center text-xs font-bold text-soosi-red mb-3 animate-pulse">👇 請滑動卷軸至最底部以啟用按鈕</div>}
                             <button onClick={() => { if(canAgree) { onAgree && onAgree(); onClose(); }}} disabled={!canAgree}
-                                className={`w-full py-4 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all ${canAgree ? 'bg-soosi-wood text-white shadow-lg hover:bg-[#7A5E47]' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>
+                                className={`w-full py-4 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all ${canAgree ? 'bg-soosi-wood text-white shadow-lg' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>
                                 <Icon name={canAgree ? "check-circle" : "lock"} size={20} />
                                 {canAgree ? "我已詳閱並同意" : "請閱讀完畢"}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // 2. 漂亮的密碼驗證視窗 (Modal 樣式)
+        const PasswordModal = ({ isOpen, onClose, onConfirm }) => {
+            const [pwd, setPwd] = useState("");
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 z-[200] bg-soosi-dark/60 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
+                    <div className="w-full max-w-xs bg-white rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 flex flex-col items-center text-center">
+                        <div className="w-16 h-16 bg-soosi-green/10 rounded-full flex items-center justify-center text-soosi-green mb-4">
+                            <Icon name="lock" size={32} />
+                        </div>
+                        <h3 className="font-black text-xl text-soosi-dark mb-2">權限驗證</h3>
+                        <p className="text-xs text-gray-400 mb-6">請輸入店家密碼以產生連結</p>
+                        <input 
+                            type="password" 
+                            autoFocus
+                            value={pwd}
+                            onChange={(e) => setPwd(e.target.value)}
+                            placeholder="••••"
+                            className="w-full cute-input px-4 py-3 text-center text-2xl tracking-[0.5em] mb-6 focus:ring-soosi-green/20"
+                        />
+                        <div className="flex gap-3 w-full">
+                            <button onClick={onClose} className="flex-1 py-3 text-gray-400 font-bold text-sm">取消</button>
+                            <button 
+                                onClick={() => { onConfirm(pwd); setPwd(""); }}
+                                className="flex-1 py-3 bg-soosi-green text-white rounded-2xl font-bold shadow-lg shadow-soosi-green/20 active:scale-95 transition-all"
+                            >確認</button>
                         </div>
                     </div>
                 </div>
@@ -748,14 +749,20 @@ const [lineConfirmed, setLineConfirmed] = useState(false);
                 }
             }, []);
 
-            // 3. 新增：產生鎖定連結功能 (帶有密碼保護)
-            const generateLockedLink = () => {
-                const password = prompt("請輸入店家管理密碼：");
-                if (password !== "soosi") { // 你可以修改成你要的密碼
-                    alert("密碼錯誤，無法產生連結。");
+// 點擊按鈕時觸發
+            const handleRequestLink = () => {
+                setShowPwdModal(true);
+            };
+
+            // 密碼確認後執行
+            const onPasswordVerified = (inputPwd) => {
+                if (inputPwd !== "soosi") {
+                    alert("密碼錯誤！");
                     return;
                 }
-
+                setShowPwdModal(false);
+                
+                // 執行原本的產生連結邏輯
                 const params = new URLSearchParams();
                 params.set('mode', 'customer');
                 
@@ -763,29 +770,23 @@ const [lineConfirmed, setLineConfirmed] = useState(false);
                     params.set('type', 'boarding');
                     if (formData.checkInDate) params.set('in', formData.checkInDate);
                     if (formData.checkOutDate) params.set('out', formData.checkOutDate);
-                    if (formData.price_per_night) params.set('ppn', formData.price_per_night);
-                    if (formData.holiday_surcharge) params.set('hol', formData.holiday_surcharge);
-                    if (formData.addGrooming) params.set('addGrooming', formData.addGrooming);
-                    if (formData.boarding_grooming_price) params.set('bgp', formData.boarding_grooming_price);
+                    if (formData.estimated_price) params.set('price', formData.estimated_price);
                 } else {
                     params.set('type', 'grooming');
                     if (formData.bookingDate) params.set('date', formData.bookingDate);
                     if (formData.bookingTime) params.set('time', formData.bookingTime);
+                    if (formData.estimated_price) params.set('price', formData.estimated_price);
                 }
-
+                
                 if (formData.service_items.length > 0) params.set('items', formData.service_items.join(','));
-                if (formData.service_items_other) params.set('other', encodeURIComponent(formData.service_items_other));
-                if (formData.estimated_price) params.set('price', formData.estimated_price);
 
                 const finalUrl = `${window.location.href.split('?')[0].split('#')[0]}?${params.toString()}`;
                 
                 navigator.clipboard.writeText(finalUrl).then(() => {
-                    alert("✅ 連結已複製！\n\n此連結已鎖定你剛才填寫的日期、項目與金額。\n傳給客人後，客人將無法修改這些部分。");
-                }).catch(() => {
-                    prompt("複製失敗，請手動複製網址：", finalUrl);
+                    alert("✅ 鎖定連結已成功複製！\n現在您可以貼上 LINE 傳送給客人填寫。");
                 });
             };
-            
+
             // Signature State
             const [showFullSig, setShowFullSig] = useState(false);
             const [realtimeSig, setRealtimeSig] = useState(null);
@@ -794,6 +795,7 @@ const [lineConfirmed, setLineConfirmed] = useState(false);
 
             // Terms State
 const [activeModal, setActiveModal] = useState(null);
+const [showPwdModal, setShowPwdModal] = useState(false);
             const [termsRead, setTermsRead] = useState({ 
                 grooming: false, 
                 boarding: false, 
@@ -2472,15 +2474,16 @@ const handleSubmit = async () => {
                         </div>
 
 {/* 提交按鈕 */}
-                        <button onClick={handleSubmit} disabled={isSubmitting || !realtimeSig} className="w-full py-5 bg-soosi-dark text-white rounded-[2rem] font-black text-lg shadow-xl ...">
-                            {isSubmitting ? '提交中...' : '確認並提交數位契約'}
-                        </button>
+<button onClick={handleSubmit} disabled={isSubmitting || !realtimeSig} className="w-full py-5 bg-gradient-to-r from-soosi-green to-[#5a7a63] text-white rounded-[2rem] font-black text-lg shadow-lg shadow-soosi-green/20 hover:shadow-xl hover:-translate-y-1 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:transform-none">
+    {isSubmitting ? <Icon name="loader-2" className="animate-spin"/> : <Icon name="send" size={20} />}
+    {isSubmitting ? '提交中...' : '確認並提交數位契約'}
+</button>
 
                         {/* 店家管理工具：產生連結 (僅非客人模式顯示) */}
                         {!isCustomerMode && (
                             <div className="pt-6 border-t border-gray-200 mt-6 animate-in fade-in duration-700">
                                 <button 
-                                    onClick={generateLockedLink} 
+onClick={handleRequestLink}
                                     className="w-full py-3 bg-white border-2 border-soosi-green text-soosi-green rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-soosi-green/5 transition-all active:scale-95"
                                 >
                                     <Icon name="link" size={18}/> 產生鎖定金額連結 (傳給客人)
@@ -2492,7 +2495,7 @@ const handleSubmit = async () => {
                         )}
                         </section>
                     </main>
-
+<PasswordModal isOpen={showPwdModal} onClose={() => setShowPwdModal(false)} onConfirm={onPasswordVerified} />
                     {/* Fullscreen Signature Modal */}
                     {showFullSig && (
                         <div className="fullscreen-signature flex flex-col animate-in fade-in duration-200">
@@ -2860,7 +2863,7 @@ const handleSubmit = async () => {
                     <BoardingPriceModal isOpen={activeModal === 'boardingPrice'} onClose={()=>setActiveModal(null)} />
                 </div>
             );
-        };
+};
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
     </script>
