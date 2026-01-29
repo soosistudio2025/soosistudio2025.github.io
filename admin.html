@@ -248,6 +248,7 @@
         // --- 訂單詳情 Modal (含編輯與完整資訊) ---
         const OrderModal = ({ user, order, onClose, onUpdateStatus, onUpdateNote, onDeleteOrder, onUpdateFullOrder }) => {
             if (!order) return null;
+            const [showReport, setShowReport] = useState(false); // 控制報告彈窗
             const [localNote, setLocalNote] = useState(order.admin_note || '');
             const [isEditing, setIsEditing] = useState(false);
             const [showAuth, setShowAuth] = useState(false); 
@@ -439,6 +440,14 @@
         </button>
     ))}
 </div>
+{/* 🌟 新增：美容完工報告按鈕 */}
+<button 
+    onClick={() => setShowReport(true)}
+    className="mt-3 w-full py-3 bg-soosi-wood/10 text-soosi-wood border-2 border-dashed border-soosi-wood/20 rounded-xl font-black text-sm flex items-center justify-center gap-2 hover:bg-soosi-wood hover:text-white transition-all group"
+>
+    <Icon name="clipboard-list" size={18} className="group-hover:scale-110 transition-transform"/> 
+    產生美容完工報告 (複製給飼主)
+</button>
                                 </div>
                                 {/* 店家備註 */}
                                 <div className="bg-white p-5 rounded-3xl border border-soosi-wood/10 shadow-sm relative group">
@@ -580,6 +589,147 @@
                         onConfirm={()=>onDeleteOrder(order.id)} 
                         title="⚠️ 危險操作：刪除訂單"
                     />
+                    {/* 🌟 掛載報告生成器 */}
+                <ReportGeneratorModal 
+                    isOpen={showReport} 
+                    onClose={() => setShowReport(false)} 
+                    order={order} 
+                />
+                </div>
+            );
+        };
+        // --- 美容報告生成器 Modal ---
+        const ReportGeneratorModal = ({ isOpen, onClose, order }) => {
+            const [reportData, setReportData] = useState({
+                general: '',
+                skin: '',
+                feeDetail: '',
+                overtime: ''
+            });
+
+            // 初始化資料 (自動帶入)
+            useEffect(() => {
+                if (isOpen && order) {
+                    // 1. 日期
+                    const dateStr = order.booking_date || order.check_in_date || new Date().toISOString().split('T')[0];
+                    
+                    // 2. 費用 (預設帶入總金額)
+                    const feeStr = `本次消費總計：$${order.total_price}`;
+
+                    setReportData({
+                        general: '精神食慾良好，洗澡過程配合。', // 預設罐頭文字，可修改
+                        skin: '皮膚狀況正常，無發現明顯外傷或紅腫。', // 預設罐頭文字
+                        feeDetail: feeStr,
+                        overtime: ''
+                    });
+                }
+            }, [isOpen, order]);
+
+            if (!isOpen || !order) return null;
+
+            // 產生最終文字
+            const generateText = () => {
+                // 處理寵物名與服務類型 (自動偵測)
+                const petInfo = order.booking_pets.map(p => {
+                    let service = '美容';
+                    if (p.service_items?.includes('basic')) service = '小美容';
+                    if (p.service_items?.includes('full')) service = '大美容';
+                    if (order.service_type === 'boarding') service += '(住宿)';
+                    return `${p.pet_name}(${service})`;
+                }).join('、');
+
+                // 處理日期 (格式化)
+                const dateObj = new Date(order.booking_date || order.check_in_date || Date.now());
+                const dateText = `${dateObj.getMonth()+1}/${dateObj.getDate()}`;
+
+                const petsName = order.booking_pets.map(p => p.pet_name).join('、');
+
+                return `【${dateText} ${petInfo}】\n` +
+                       `整體狀況 - ${reportData.general}\n` +
+                       `皮膚狀況 - ${reportData.skin}\n\n` +
+                       `費用明細：\n${reportData.feeDetail}\n\n` +
+                       `--------------------------------\n` +
+                       `🎉 可以來接 [ ${petsName} ] 回家囉!\n` +
+                       `請於通知後兩小時內將毛孩接回，逾時將依安親照顧費收費，未滿一小時以一小時計算：\n` +
+                       `${reportData.overtime ? reportData.overtime : '(尚未選擇費率)'}\n` +
+                       `—\n` +
+                       `有任何問題隨時都可以詢問~`;
+            };
+
+            const handleCopy = () => {
+                const text = generateText();
+                navigator.clipboard.writeText(text).then(() => {
+                    alert("✅ 報告已複製！請切換到 LINE 貼上。");
+                    onClose();
+                });
+            };
+
+            return (
+                <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+                    <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95">
+                        
+                        {/* Header */}
+                        <div className="bg-soosi-wood p-5 text-white flex justify-between items-center rounded-t-[2rem] shrink-0">
+                            <h3 className="font-black text-lg flex items-center gap-2"><Icon name="clipboard-list"/> 美容完工報告</h3>
+                            <button onClick={onClose}><Icon name="x"/></button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="p-6 overflow-y-auto space-y-5 bg-[#F9F7F2]">
+                            
+                            {/* 1. 狀況填寫 */}
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="text-xs font-bold text-soosi-wood mb-1 block">整體狀況</label>
+                                    <textarea value={reportData.general} onChange={e=>setReportData({...reportData, general: e.target.value})} className="w-full p-2 rounded-xl border border-gray-200 text-sm h-20 resize-none focus:border-soosi-wood outline-none"/>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-soosi-wood mb-1 block">皮膚狀況</label>
+                                    <textarea value={reportData.skin} onChange={e=>setReportData({...reportData, skin: e.target.value})} className="w-full p-2 rounded-xl border border-gray-200 text-sm h-20 resize-none focus:border-soosi-wood outline-none"/>
+                                </div>
+                            </div>
+
+                            {/* 2. 費用 */}
+                            <div>
+                                <label className="text-xs font-bold text-soosi-wood mb-1 block">費用明細</label>
+                                <textarea value={reportData.feeDetail} onChange={e=>setReportData({...reportData, feeDetail: e.target.value})} className="w-full p-2 rounded-xl border border-gray-200 text-sm h-16 resize-none focus:border-soosi-wood outline-none"/>
+                            </div>
+
+                            {/* 3. 逾時費率 (快速按鈕) */}
+                            <div className="bg-white p-4 rounded-xl border border-soosi-wood/10">
+                                <label className="text-xs font-bold text-soosi-wood mb-2 block flex items-center gap-1">
+                                    <Icon name="clock" size={12}/> 逾時費率選擇 (點擊帶入)
+                                </label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {[
+                                        "小型犬(5kg下)：$80/時",
+                                        "中型犬(5-10kg)：$90/時",
+                                        "大型犬(10kg上)：$100/時",
+                                        "貓咪：$90/時"
+                                    ].map((rate, i) => (
+                                        <button key={i} 
+                                            onClick={() => setReportData({...reportData, overtime: rate})}
+                                            className={`text-[10px] font-bold py-2 px-1 rounded-lg border transition-all ${reportData.overtime === rate ? 'bg-soosi-wood text-white border-soosi-wood' : 'bg-gray-50 text-gray-500 border-gray-100 hover:bg-gray-100'}`}>
+                                            {rate}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* 預覽區塊 */}
+                            <div className="bg-gray-100 p-4 rounded-xl text-xs text-gray-600 leading-relaxed font-mono whitespace-pre-wrap border border-dashed border-gray-300 relative">
+                                <div className="absolute top-2 right-2 text-[10px] text-gray-300 font-bold">預覽</div>
+                                {generateText()}
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-4 border-t border-gray-100 bg-white rounded-b-[2rem] shrink-0">
+                            <button onClick={handleCopy} className="w-full py-3 bg-soosi-green text-white rounded-xl font-black shadow-lg flex items-center justify-center gap-2 hover:bg-[#5a7a63] transition-all active:scale-95">
+                                <Icon name="copy" size={18}/> 一鍵複製報告
+                            </button>
+                        </div>
+                    </div>
                 </div>
             );
         };
@@ -907,7 +1057,7 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', async () => {
                 try {
-                    const registration = await navigator.serviceWorker.register('./sw-admin.js?v=6');
+                    const registration = await navigator.serviceWorker.register('./sw-admin.js?v=7');
                     console.log('Admin SW 註冊成功');
                 } catch (error) {
                     console.error('Admin SW 註冊失敗:', error);
