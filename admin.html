@@ -394,28 +394,27 @@
                                 </h3>
                                 <p className="text-[10px] text-gray-400 font-bold tracking-widest uppercase">ID: {order.id.slice(0,8)}</p>
                             </div>
-                            <div className="flex gap-2">
-                                {/* 權限控制：只有管理員能看到編輯按鈕，員工完全看不到 */}
-                                {user?.email === ADMIN_EMAIL && (
-                                    !isEditing ? (
-                                        <>
-                                            <button onClick={() => setIsEditing(true)} className="p-2 bg-gray-100 hover:bg-soosi-wood hover:text-white rounded-full transition-colors" title="進入編輯模式">
-                                                <Icon name="edit-2" size={18}/>
-                                            </button>
-                                            <button onClick={() => setShowDeleteAuth(true)} className="p-2 bg-red-50 hover:bg-red-500 hover:text-white text-red-400 rounded-full transition-colors" title="刪除訂單">
-                                                <Icon name="trash-2" size={18}/>
-                                            </button>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <button onClick={() => setIsEditing(false)} className="px-4 py-2 bg-gray-200 rounded-xl text-xs font-bold">放棄修改</button>
-                                            <button onClick={() => setShowAuth(true)} className="px-4 py-2 bg-soosi-green text-white rounded-xl text-xs font-bold shadow-md">確認並存檔</button>
-                                        </>
-                                    )
-                                )}
-                                {/* 關閉按鈕永遠顯示 */}
-                                <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors ml-2"><Icon name="x" size={24}/></button>
-                            </div>
+<div className="flex gap-2 items-center">
+    {/* 只有管理員 (ADMIN_EMAIL) 才能看到編輯與刪除按鈕 */}
+    {user?.email === ADMIN_EMAIL && (
+        !isEditing ? (
+            <>
+                <button onClick={() => setIsEditing(true)} className="p-2 bg-gray-100 hover:bg-soosi-wood hover:text-white rounded-full transition-colors" title="進入編輯模式">
+                    <Icon name="edit-2" size={18}/>
+                </button>
+                <button onClick={() => setShowDeleteAuth(true)} className="p-2 bg-red-50 hover:bg-red-500 hover:text-white text-red-400 rounded-full transition-colors" title="刪除訂單">
+                    <Icon name="trash-2" size={18}/>
+                </button>
+            </>
+        ) : (
+            <div className="flex items-center gap-2">
+                <button onClick={() => setShowAuth(true)} className="px-6 py-1.5 bg-soosi-green text-white rounded-xl text-xs font-black shadow-md active:scale-95 transition-all">儲存</button>
+            </div>
+        )
+    )}
+    {/* 🌟 放棄修改：直接點擊 X 關閉視窗即可，不需額外按鈕 */}
+    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors ml-1"><Icon name="x" size={24}/></button>
+</div>
                         </div>
 
                         <div className="p-8 overflow-y-auto space-y-6">
