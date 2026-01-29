@@ -2495,185 +2495,6 @@ return allServices.map((item) => (
                                 </div>
                             </div>
                             )}
-{/* ★ 集點卡 (傳入控制參數) ★ */}
-                                    {loyaltyInfo && (
-                                        <div className="mb-6">
-                                            <LoyaltyProgressCard 
-                                                info={loyaltyInfo} 
-                                                formData={formData}        // 傳入表單資料
-                                                setFormData={setFormData}  // 傳入設定函數
-                                                isCustomerMode={isCustomerMode} // 傳入是否為客人模式(鎖定)
-                                            />
-                                        </div>
-                                    )}
-
-{/* 新增：本次服務金額 (獨立區塊，永遠顯示) */}
-                            <div className="cute-card p-6 space-y-4 border-2 border-soosi-wood/20">
-                                <div className="flex items-center justify-between border-b border-soosi-wood/10 pb-2 mb-2">
-                                    <h3 className="font-black text-lg text-soosi-wood flex items-center gap-2">
-                                        <Icon name="wallet" size={20}/> 本次{formData.isDaycare ? '安親' : '住宿'}金額
-                                    </h3>
-                                </div>
-                                
-<div className="bg-white p-5 rounded-xl border border-soosi-wood/10 shadow-sm space-y-4">
-                                    {formData.isDaycare ? (
-                                        <div className="flex flex-col gap-1 animate-in fade-in">
-                                            <label className="text-xs font-bold text-gray-400">安親服務報價</label>
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-black text-soosi-wood text-xl">$</span>
-                                                <input 
-                                                    type="number" 
-                                                    disabled={isCustomerMode}
-                                                    value={formData.estimated_price || ''} 
-                                                    onChange={handleInputChange}
-                                                    name="estimated_price"
-                                                    placeholder="請輸入總額" 
-                                                    className="w-full cute-input px-3 py-3 text-2xl font-mono font-bold text-soosi-wood"
-                                                />
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <>
-                                    
-                                    {/* 1. 住宿費輸入 */}
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-xs font-bold text-gray-400">A. 每晚房型單價</label>
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-black text-soosi-wood">$</span>
-                                            <input 
-                                                type="number" 
-                                                disabled={isCustomerMode} // 鎖定
-                                                value={formData.price_per_night || ''} 
-                                                onChange={(e) => setFormData(p => ({ ...p, price_per_night: e.target.value }))}
-                                                placeholder="輸入每晚金額" 
-                                                className="w-full cute-input px-3 py-2 text-lg font-mono font-bold text-soosi-wood"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* 2. 國定假日/特殊加價 (新增這一段) */}
-                                    <div className="flex flex-col gap-1 animate-in fade-in">
-                                        <label className="text-xs font-bold text-gray-400 flex items-center gap-1">
-                                            B. 國定假日/特殊加價 <span className="text-[10px] text-red-400">(不列入折扣)</span>
-                                        </label>
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-black text-soosi-red">$</span>
-                                            <input 
-                                                type="number" 
-                                                disabled={isCustomerMode} // 鎖定
-                                                value={formData.holiday_surcharge || ''} 
-                                                onChange={(e) => setFormData(p => ({ ...p, holiday_surcharge: e.target.value }))}
-                                                placeholder="例如: 100 (無則留空)" 
-                                                className="w-full cute-input px-3 py-2 text-lg font-mono font-bold text-soosi-red border-red-200 focus:bg-red-50"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* 3. 美容費輸入 (僅當勾選加購美容時顯示) */}
-                                    {formData.addGrooming && (
-                                        <div className="flex flex-col gap-1 animate-in fade-in slide-in-from-top-2">
-                                            <label className="text-xs font-bold text-gray-400">C. 美容/SPA 加購報價</label>
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-black text-soosi-green">$</span>
-                                                <input 
-                                                    type="number" 
-                                                    disabled={isCustomerMode} // 鎖定
-                                                    value={formData.boarding_grooming_price || ''} 
-                                                    onChange={(e) => setFormData(p => ({ ...p, boarding_grooming_price: e.target.value }))}
-                                                    placeholder="輸入美容總額" 
-                                                    className="w-full cute-input px-3 py-2 text-lg font-mono font-bold text-soosi-green border-soosi-green/30 focus:bg-soosi-green/5"
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-
-{/* 4. 計算過程顯示 (修改版：加入優惠扣除邏輯) */}
-                                    {stayDuration && formData.price_per_night && (
-                                        <div className="bg-gray-50 p-3 rounded-lg border border-gray-100 space-y-2 text-xs animate-in fade-in">
-                                            {/* 住宿細項 */}
-                                            <div className="flex justify-between">
-                                                <span>住宿費用 ({stayDuration} 晚)</span>
-                                                <span className="font-bold">${parseInt(formData.price_per_night) * stayDuration}</span>
-                                            </div>
-                                            
-                                            {/* 長期住宿折扣 */}
-                                            {stayDuration >= 6 && (
-                                                <div className="flex justify-between text-soosi-green">
-                                                    <span className="flex items-center gap-1">
-                                                        <Icon name="gift" size={12}/> 
-                                                        {stayDuration >= 15 ? '長住優惠 (15晚以上 85折)' : '長住優惠 (6晚以上 95折)'}
-                                                    </span>
-                                                    <span className="font-bold">
-                                                        {stayDuration >= 15 ? '-15%' : '-5%'}
-                                                    </span>
-                                                </div>
-                                            )}
-
-                                            {/* 假日加價 */}
-                                            {formData.holiday_surcharge && (
-                                                <div className="flex justify-between text-soosi-red">
-                                                    <span>+ 國定假日/加價</span>
-                                                    <span className="font-bold">${formData.holiday_surcharge}</span>
-                                                </div>
-                                            )}
-
-                                            {/* 美容細項 */}
-                                            {formData.addGrooming && formData.boarding_grooming_price && (
-                                                <div className="flex justify-between text-soosi-green border-t border-dashed border-gray-200 pt-2 mt-2">
-                                                    <span>+ 美容服務總額</span>
-                                                    <span className="font-bold">${formData.boarding_grooming_price}</span>
-                                                </div>
-                                            )}
-
-                                            {/* ✨ 新增：優惠折抵 (只有加購美容且符合優惠時顯示) */}
-                                            {formData.addGrooming && formData.usePromo50 && (
-                                                <div className="flex justify-between text-soosi-red bg-red-50 p-1.5 -mx-1.5 rounded">
-                                                    <span className="flex items-center gap-1 font-bold">
-                                                        <Icon name="sparkles" size={12}/> 50天回訪優惠
-                                                    </span>
-                                                    <span className="font-bold">- $200</span>
-                                                </div>
-                                            )}
-                                            
-                                            <div className="border-t border-gray-300 my-2"></div>
-                                            
-                                            <div className="flex justify-between items-center">
-                                                <span className="font-bold text-soosi-dark text-sm">總金額 (含稅)</span>
-                                                <span className="text-2xl font-black text-soosi-wood">
-                                                    ${
-                                                        Math.round(parseInt(formData.price_per_night) * stayDuration * (stayDuration >= 15 ? 0.85 : stayDuration >= 6 ? 0.95 : 1)) 
-                                                        + (parseInt(formData.holiday_surcharge || 0))
-                                                        + (formData.addGrooming ? parseInt(formData.boarding_grooming_price || 0) : 0)
-                                                        - (formData.addGrooming && formData.usePromo50 ? 200 : 0) // <--- 這裡執行扣款
-                                                    }
-                                                </span>
-                                            </div>
-
-                                            {/* 確保提交的 hidden value 也是正確的扣除後金額 */}
-                                            <input type="hidden" name="estimated_price" value={
-                                                Math.round(parseInt(formData.price_per_night || 0) * (stayDuration || 0) * (stayDuration >= 15 ? 0.85 : stayDuration >= 6 ? 0.95 : 1)) 
-                                                + (parseInt(formData.holiday_surcharge || 0))
-                                                + (formData.addGrooming ? parseInt(formData.boarding_grooming_price || 0) : 0)
-                                                - (formData.addGrooming && formData.usePromo50 ? 200 : 0)
-                                            } />
-                                        </div>
-                                    )}
-                                    </>
-                                    )}
-
-                                    {/* 備註與注意事項 */}
-                                    <div className="w-full space-y-2 pt-2">
-                                        <div className="text-[11px] text-soosi-wood font-bold leading-snug bg-soosi-wood/5 p-3 rounded-lg border border-soosi-wood/10 flex items-start gap-2">
-                                            <Icon name="info" size={14} className="mt-0.5 shrink-0" />
-                                            <span>備註：此金額為基礎報價，若美容時有嚴重打結、跳蚤、攻擊行為等...，將另加收處理費。</span>
-                                        </div>
-                                        <div className="text-[11px] text-soosi-red font-bold leading-snug bg-red-50 p-3 rounded-lg border border-red-100 flex items-start gap-2">
-                                            <Icon name="alert-triangle" size={14} className="mt-0.5 shrink-0" />
-                                            <span>注意：本店不接有寄生蟲、傳染疾病、黴菌之類的毛孩。若過程中發現，將額外收取環境清潔費 $1000。</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
                             {/* 區塊 2: 飲食習慣 (共通項目 - 新增) */}
                             <div className="bg-white p-6 rounded-3xl shadow-sm border border-soosi-green/10 space-y-6">
                                 <h3 className="font-black text-lg text-soosi-green flex items-center gap-2 border-b border-soosi-green/10 pb-2">
@@ -2916,6 +2737,185 @@ return allServices.map((item) => (
                                 <div className="space-y-1">
                                     <label className="text-sm font-bold text-soosi-dark ml-1">有需要特別注意的嗎? 任何事情都可以說越詳細越好</label>
                                     <textarea name="specialNotes" value={formData.specialNotes || ''} onChange={handleInputChange} rows="3" placeholder="例如：害怕打雷、不喜歡被摸腳..." className="w-full bg-gray-50 border-0 rounded-xl p-3 focus:ring-2 focus:ring-soosi-green/30 resize-none"></textarea>
+                                </div>
+                            </div>
+                                    {/* ★ 集點卡 (傳入控制參數) ★ */}
+                                    {loyaltyInfo && (
+                                        <div className="mb-6">
+                                            <LoyaltyProgressCard 
+                                                info={loyaltyInfo} 
+                                                formData={formData}        // 傳入表單資料
+                                                setFormData={setFormData}  // 傳入設定函數
+                                                isCustomerMode={isCustomerMode} // 傳入是否為客人模式(鎖定)
+                                            />
+                                        </div>
+                                    )}
+
+{/* 新增：本次服務金額 (獨立區塊，永遠顯示) */}
+                            <div className="cute-card p-6 space-y-4 border-2 border-soosi-wood/20">
+                                <div className="flex items-center justify-between border-b border-soosi-wood/10 pb-2 mb-2">
+                                    <h3 className="font-black text-lg text-soosi-wood flex items-center gap-2">
+                                        <Icon name="wallet" size={20}/> 本次{formData.isDaycare ? '安親' : '住宿'}金額
+                                    </h3>
+                                </div>
+                                
+<div className="bg-white p-5 rounded-xl border border-soosi-wood/10 shadow-sm space-y-4">
+                                    {formData.isDaycare ? (
+                                        <div className="flex flex-col gap-1 animate-in fade-in">
+                                            <label className="text-xs font-bold text-gray-400">安親服務報價</label>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-black text-soosi-wood text-xl">$</span>
+                                                <input 
+                                                    type="number" 
+                                                    disabled={isCustomerMode}
+                                                    value={formData.estimated_price || ''} 
+                                                    onChange={handleInputChange}
+                                                    name="estimated_price"
+                                                    placeholder="請輸入總額" 
+                                                    className="w-full cute-input px-3 py-3 text-2xl font-mono font-bold text-soosi-wood"
+                                                />
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <>
+                                    
+                                    {/* 1. 住宿費輸入 */}
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-xs font-bold text-gray-400">A. 每晚房型單價</label>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-black text-soosi-wood">$</span>
+                                            <input 
+                                                type="number" 
+                                                disabled={isCustomerMode} // 鎖定
+                                                value={formData.price_per_night || ''} 
+                                                onChange={(e) => setFormData(p => ({ ...p, price_per_night: e.target.value }))}
+                                                placeholder="輸入每晚金額" 
+                                                className="w-full cute-input px-3 py-2 text-lg font-mono font-bold text-soosi-wood"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* 2. 國定假日/特殊加價 (新增這一段) */}
+                                    <div className="flex flex-col gap-1 animate-in fade-in">
+                                        <label className="text-xs font-bold text-gray-400 flex items-center gap-1">
+                                            B. 國定假日/特殊加價 <span className="text-[10px] text-red-400">(不列入折扣)</span>
+                                        </label>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-black text-soosi-red">$</span>
+                                            <input 
+                                                type="number" 
+                                                disabled={isCustomerMode} // 鎖定
+                                                value={formData.holiday_surcharge || ''} 
+                                                onChange={(e) => setFormData(p => ({ ...p, holiday_surcharge: e.target.value }))}
+                                                placeholder="例如: 100 (無則留空)" 
+                                                className="w-full cute-input px-3 py-2 text-lg font-mono font-bold text-soosi-red border-red-200 focus:bg-red-50"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* 3. 美容費輸入 (僅當勾選加購美容時顯示) */}
+                                    {formData.addGrooming && (
+                                        <div className="flex flex-col gap-1 animate-in fade-in slide-in-from-top-2">
+                                            <label className="text-xs font-bold text-gray-400">C. 美容/SPA 加購報價</label>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-black text-soosi-green">$</span>
+                                                <input 
+                                                    type="number" 
+                                                    disabled={isCustomerMode} // 鎖定
+                                                    value={formData.boarding_grooming_price || ''} 
+                                                    onChange={(e) => setFormData(p => ({ ...p, boarding_grooming_price: e.target.value }))}
+                                                    placeholder="輸入美容總額" 
+                                                    className="w-full cute-input px-3 py-2 text-lg font-mono font-bold text-soosi-green border-soosi-green/30 focus:bg-soosi-green/5"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+{/* 4. 計算過程顯示 (修改版：加入優惠扣除邏輯) */}
+                                    {stayDuration && formData.price_per_night && (
+                                        <div className="bg-gray-50 p-3 rounded-lg border border-gray-100 space-y-2 text-xs animate-in fade-in">
+                                            {/* 住宿細項 */}
+                                            <div className="flex justify-between">
+                                                <span>住宿費用 ({stayDuration} 晚)</span>
+                                                <span className="font-bold">${parseInt(formData.price_per_night) * stayDuration}</span>
+                                            </div>
+                                            
+                                            {/* 長期住宿折扣 */}
+                                            {stayDuration >= 6 && (
+                                                <div className="flex justify-between text-soosi-green">
+                                                    <span className="flex items-center gap-1">
+                                                        <Icon name="gift" size={12}/> 
+                                                        {stayDuration >= 15 ? '長住優惠 (15晚以上 85折)' : '長住優惠 (6晚以上 95折)'}
+                                                    </span>
+                                                    <span className="font-bold">
+                                                        {stayDuration >= 15 ? '-15%' : '-5%'}
+                                                    </span>
+                                                </div>
+                                            )}
+
+                                            {/* 假日加價 */}
+                                            {formData.holiday_surcharge && (
+                                                <div className="flex justify-between text-soosi-red">
+                                                    <span>+ 國定假日/加價</span>
+                                                    <span className="font-bold">${formData.holiday_surcharge}</span>
+                                                </div>
+                                            )}
+
+                                            {/* 美容細項 */}
+                                            {formData.addGrooming && formData.boarding_grooming_price && (
+                                                <div className="flex justify-between text-soosi-green border-t border-dashed border-gray-200 pt-2 mt-2">
+                                                    <span>+ 美容服務總額</span>
+                                                    <span className="font-bold">${formData.boarding_grooming_price}</span>
+                                                </div>
+                                            )}
+
+                                            {/* ✨ 新增：優惠折抵 (只有加購美容且符合優惠時顯示) */}
+                                            {formData.addGrooming && formData.usePromo50 && (
+                                                <div className="flex justify-between text-soosi-red bg-red-50 p-1.5 -mx-1.5 rounded">
+                                                    <span className="flex items-center gap-1 font-bold">
+                                                        <Icon name="sparkles" size={12}/> 50天回訪優惠
+                                                    </span>
+                                                    <span className="font-bold">- $200</span>
+                                                </div>
+                                            )}
+                                            
+                                            <div className="border-t border-gray-300 my-2"></div>
+                                            
+                                            <div className="flex justify-between items-center">
+                                                <span className="font-bold text-soosi-dark text-sm">總金額 (含稅)</span>
+                                                <span className="text-2xl font-black text-soosi-wood">
+                                                    ${
+                                                        Math.round(parseInt(formData.price_per_night) * stayDuration * (stayDuration >= 15 ? 0.85 : stayDuration >= 6 ? 0.95 : 1)) 
+                                                        + (parseInt(formData.holiday_surcharge || 0))
+                                                        + (formData.addGrooming ? parseInt(formData.boarding_grooming_price || 0) : 0)
+                                                        - (formData.addGrooming && formData.usePromo50 ? 200 : 0) // <--- 這裡執行扣款
+                                                    }
+                                                </span>
+                                            </div>
+
+                                            {/* 確保提交的 hidden value 也是正確的扣除後金額 */}
+                                            <input type="hidden" name="estimated_price" value={
+                                                Math.round(parseInt(formData.price_per_night || 0) * (stayDuration || 0) * (stayDuration >= 15 ? 0.85 : stayDuration >= 6 ? 0.95 : 1)) 
+                                                + (parseInt(formData.holiday_surcharge || 0))
+                                                + (formData.addGrooming ? parseInt(formData.boarding_grooming_price || 0) : 0)
+                                                - (formData.addGrooming && formData.usePromo50 ? 200 : 0)
+                                            } />
+                                        </div>
+                                    )}
+                                    </>
+                                    )}
+
+                                    {/* 備註與注意事項 */}
+                                    <div className="w-full space-y-2 pt-2">
+                                        <div className="text-[11px] text-soosi-wood font-bold leading-snug bg-soosi-wood/5 p-3 rounded-lg border border-soosi-wood/10 flex items-start gap-2">
+                                            <Icon name="info" size={14} className="mt-0.5 shrink-0" />
+                                            <span>備註：此金額為基礎報價，若美容時有嚴重打結、跳蚤、攻擊行為等...，將另加收處理費。</span>
+                                        </div>
+                                        <div className="text-[11px] text-soosi-red font-bold leading-snug bg-red-50 p-3 rounded-lg border border-red-100 flex items-start gap-2">
+                                            <Icon name="alert-triangle" size={14} className="mt-0.5 shrink-0" />
+                                            <span>注意：本店不接有寄生蟲、傳染疾病、黴菌之類的毛孩。若過程中發現，將額外收取環境清潔費 $1000。</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
