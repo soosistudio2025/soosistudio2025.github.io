@@ -854,13 +854,16 @@ const handleSearchHistory = async () => {
             return;
         }
 
-        const allRecords = data.map(r => {
-            // 判斷來源 (如果是住宿或安親，視為 boarding)
-            const sType = r.raw_data.service_type || '';
-            const source = (sType.includes('住宿') || sType.includes('安親')) ? 'boarding' : 'grooming';
+const allRecords = data.map(r => {
+            // 🌟 修正重點：因為資料庫結構有變，我們需要多挖一層 (r.raw_data.raw_data)
+            // 如果是舊資料可能在第一層，新資料在第二層，這裡做個相容判斷
+            const innerData = r.raw_data.raw_data || r.raw_data || {};
+            
+            const sType = innerData.service_type || r.raw_data.service_type || '';
+            const source = (sType.includes('住宿') || sType.includes('安親') || sType === 'boarding' || sType === 'daycare') ? 'boarding' : 'grooming';
             
             return {
-                ...r.raw_data, // 解壓縮 raw_data (包含 pet_name, owner_name 等)
+                ...innerData, // 展開內層資料 (這裡面才有 pet_name)
                 id: r.id,
                 created_at: r.created_at,
                 source: source
