@@ -970,6 +970,177 @@ return baseInfo +
                 </div>
             );
         };
+        // --- CRM: 顧客詳細歷程 Modal ---
+        const CustomerDetailModal = ({ customer, onClose, onSelectOrder }) => {
+            if (!customer) return null;
+            return (
+                <div className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-[#F9F7F2] rounded-[2.5rem] w-full max-w-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden animate-in zoom-in-95">
+                        <div className="bg-white p-6 flex justify-between items-center border-b">
+                            <div className="flex items-center gap-4">
+                                <div className="w-14 h-14 bg-soosi-green rounded-2xl flex items-center justify-center text-white text-xl font-black">{customer.name[0]}</div>
+                                <div>
+                                    <h3 className="text-xl font-black text-soosi-dark">{customer.name}</h3>
+                                    <p className="text-sm font-bold text-gray-400">{customer.phone}</p>
+                                </div>
+                            </div>
+                            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><Icon name="x" size={24}/></button>
+                        </div>
+                        <div className="p-6 overflow-y-auto space-y-6">
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="bg-white p-4 rounded-2xl text-center border">
+                                    <div className="text-[10px] font-bold text-gray-400">總消費</div>
+                                    <div className="text-lg font-black text-soosi-wood">${customer.totalSpent}</div>
+                                </div>
+                                <div className="bg-white p-4 rounded-2xl text-center border">
+                                    <div className="text-[10px] font-bold text-gray-400">來訪次數</div>
+                                    <div className="text-lg font-black text-soosi-green">{customer.visitCount}次</div>
+                                </div>
+                                <div className="bg-white p-4 rounded-2xl text-center border">
+                                    <div className="text-[10px] font-bold text-gray-400">毛孩數</div>
+                                    <div className="text-lg font-black text-soosi-accent">{customer.pets.size}隻</div>
+                                </div>
+                            </div>
+                            <div className="space-y-3">
+                                <h4 className="font-black text-soosi-dark flex items-center gap-2"><Icon name="history" size={18}/> 歷史服務紀錄</h4>
+                                {customer.history.map(order => (
+                                    <div key={order.id} onClick={() => { onSelectOrder(order); onClose(); }} className="bg-white p-4 rounded-2xl hover:border-soosi-green border-2 border-transparent cursor-pointer transition-all flex justify-between items-center group">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`p-2 rounded-lg ${order.service_type === 'grooming' ? 'bg-soosi-green/10 text-soosi-green' : 'bg-soosi-wood/10 text-soosi-wood'}`}>
+                                                <Icon name={order.service_type === 'grooming' ? 'scissors' : 'home'} size={16}/>
+                                            </div>
+                                            <div>
+                                                <div className="text-sm font-black">{order.booking_date || order.check_in_date}</div>
+                                                <div className="text-[10px] text-gray-400 font-bold">{order.booking_pets?.map(p=>p.pet_name).join(', ')}</div>
+                                            </div>
+                                        </div>
+                                        <div className="text-sm font-black text-soosi-dark">${order.total_price}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+// --- 升級版日曆檢視元件 (支援預約條顯示) ---
+        const CalendarView = ({ orders, onSelectOrder }) => {
+            // 🌟 預設當月與當日
+            const today = new Date().toISOString().split('T')[0];
+            const [currentMonth, setCurrentMonth] = useState(new Date());
+            const [selectedDate, setSelectedDate] = useState(today);
+
+            const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
+            const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
+            
+            // 下拉清單用的：取得選定日期的狗狗詳細名單
+            const dailyDogs = useMemo(() => {
+                return orders.filter(o => {
+                    if (o.status === 'cancelled') return false;
+                    const date = selectedDate;
+                    if (o.service_type === 'grooming') {
+                        return (o.booking_date || o.check_in_date) === date;
+                    } else {
+                        return date >= o.check_in_date && date <= o.check_out_date;
+                    }
+                });
+            }, [orders, selectedDate]);
+
+            // 🌟 核心功能：判斷特定日期有哪些寵物 (用於日曆格子內顯示)
+            const getPetsForDate = (dateStr) => {
+                return orders.filter(o => {
+                    if (o.status === 'cancelled') return false;
+                    if (o.service_type === 'grooming') {
+                        return (o.booking_date || o.check_in_date) === dateStr;
+                    } else {
+                        return dateStr >= o.check_in_date && dateStr <= o.check_out_date;
+                    }
+                });
+            };
+
+            return (
+                <div className="space-y-4 animate-in fade-in">
+                    {/* 月份選擇器與回今天按鈕 */}
+                    <div className="flex justify-between items-center bg-white p-4 rounded-3xl shadow-sm border border-gray-100">
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() - 1)))} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><Icon name="chevron-left"/></button>
+                            <h3 className="font-black text-lg">{currentMonth.getFullYear()}年 {currentMonth.getMonth() + 1}月</h3>
+                            <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() + 1)))} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><Icon name="chevron-right"/></button>
+                        </div>
+                        <button onClick={() => { setCurrentMonth(new Date()); setSelectedDate(today); }} className="px-4 py-1.5 bg-soosi-dark text-white rounded-full text-xs font-black shadow-sm active:scale-95 transition-all">今天</button>
+                    </div>
+
+                    {/* 🌟 升級版日曆網格：調整高度以容納寵物條 */}
+                    <div className="bg-white rounded-[2rem] border shadow-sm overflow-hidden">
+                        <div className="grid grid-cols-7 bg-gray-50 border-b">
+                            {['日','一','二','三','四','五','六'].map(d => <div key={d} className="text-center text-[10px] font-black text-gray-400 py-3">{d}</div>)}
+                        </div>
+                        <div className="grid grid-cols-7">
+                            {[...Array(firstDayOfMonth)].map((_, i) => <div key={`empty-${i}`} className="border-b border-r border-gray-50 min-h-[100px]" />)}
+                            {[...Array(daysInMonth)].map((_, i) => {
+                                const d = i + 1;
+                                const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth()+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                                const isSelected = dateStr === selectedDate;
+                                const isToday = dateStr === today;
+                                const petsInDay = getPetsForDate(dateStr);
+
+                                return (
+                                    <div key={d} onClick={() => setSelectedDate(dateStr)} 
+                                        className={`min-h-[100px] border-b border-r border-gray-50 p-1 cursor-pointer transition-all hover:bg-soosi-green/5 ${isSelected ? 'bg-soosi-green/10 ring-2 ring-inset ring-soosi-green z-10' : ''}`}>
+                                        <div className="flex justify-between items-start mb-1">
+                                            <span className={`text-[11px] font-black w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-soosi-red text-white' : isSelected ? 'text-soosi-green' : 'text-gray-400'}`}>{d}</span>
+                                        </div>
+                                        
+                                        {/* 🌟 寵物條清單 (限制顯示前3筆，其餘顯示 +更多) */}
+                                        <div className="space-y-0.5 overflow-hidden">
+                                            {petsInDay.slice(0, 3).map(o => (
+                                                <div key={o.id} className={`text-[9px] font-black px-1.5 py-0.5 rounded-sm truncate text-white shadow-sm ${o.service_type === 'grooming' ? 'bg-blue-400' : 'bg-orange-400'}`}>
+                                                    {o.booking_pets?.map(p => p.pet_name).join(',')}
+                                                </div>
+                                            ))}
+                                            {petsInDay.length > 3 && (
+                                                <div className="text-[8px] text-gray-400 font-bold text-center mt-0.5">+{petsInDay.length - 3} 更多</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* 當日詳情清單 (維持原本設計，方便點擊看詳細資訊) */}
+                    <div className="bg-[#F9F7F2] rounded-[2rem] p-6 border-2 border-dashed border-soosi-wood/20">
+                        <div className="flex justify-between items-center mb-4">
+                            <h4 className="font-black text-soosi-dark flex items-center gap-2">
+                                <Icon name="calendar-check" className="text-soosi-wood"/> {selectedDate} 詳情名單
+                            </h4>
+                            <span className="bg-white border px-3 py-1 rounded-full text-[10px] font-black text-soosi-wood">{dailyDogs.length} 隻毛孩</span>
+                        </div>
+                        
+                        <div className="space-y-3">
+                            {dailyDogs.length > 0 ? dailyDogs.map(o => (
+                                <div key={o.id} onClick={() => onSelectOrder(o)} className="bg-white p-4 rounded-2xl border border-gray-100 hover:border-soosi-green cursor-pointer transition-all flex justify-between items-center group shadow-sm">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-1.5 h-10 rounded-full ${o.service_type === 'grooming' ? 'bg-blue-400' : 'bg-orange-400'}`}></div>
+                                        <div>
+                                            <div className="font-black text-soosi-dark text-base">{o.booking_pets?.map(p => p.pet_name).join(', ')}</div>
+                                            <div className="text-[10px] text-gray-400 font-bold">{o.owner_name} · {o.service_type === 'grooming' ? '✂️ 美容服務' : '🏠 住宿/安親'}</div>
+                                        </div>
+                                    </div>
+                                    <Icon name="chevron-right" size={16} className="text-gray-300 group-hover:text-soosi-green transition-transform group-hover:translate-x-1" />
+                                </div>
+                            )) : (
+                                <div className="py-12 text-center">
+                                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 text-gray-300"><Icon name="calendar-off" size={32}/></div>
+                                    <p className="text-gray-400 font-bold text-sm">此日期暫無任何預約紀錄 🍃</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
         // --- 主 Dashboard ---
         const Dashboard = ({ user }) => {
             const [showPwdModal, setShowPwdModal] = useState(false); // 新增這行
@@ -979,15 +1150,20 @@ return baseInfo +
             const [selectedOrder, setSelectedOrder] = useState(null);
             const [searchTerm, setSearchTerm] = useState('');
 
-            const fetchOrders = async () => {
+const fetchOrders = async () => {
                 setLoading(true);
-                const filterTypes = activeTab === 'grooming' ? ['grooming'] : ['boarding', 'daycare'];
-                const { data, error } = await supabase
+                let query = supabase
                     .from('bookings')
                     .select('*, booking_pets(*)')
-                    .in('service_type', filterTypes)
                     .order('created_at', { ascending: false });
                 
+// 🌟 修正：CRM 或 日曆 模式下不篩選服務類型，抓取全資料
+if (activeTab !== 'crm' && activeTab !== 'calendar') {
+    const filterTypes = activeTab === 'grooming' ? ['grooming'] : ['boarding', 'daycare'];
+    query = query.in('service_type', filterTypes);
+}
+                
+                const { data, error } = await query;
                 if (!error) setOrders(data || []);
                 setLoading(false);
             };
@@ -1057,7 +1233,32 @@ return baseInfo +
                     o.booking_pets?.some(p => p.pet_name?.includes(searchTerm))
                 );
             }, [orders, searchTerm]);
+// 🌟 新增：CRM 顧客分組邏輯
+const customers = useMemo(() => {
+                const groups = {};
+                orders.forEach(order => {
+                    const phone = order?.phone;
+                    if (!phone) return;
+                    
+                    if (!groups[phone]) {
+                        groups[phone] = { 
+                            name: order.owner_name, phone, totalSpent: 0, visitCount: 0, 
+                            pets: new Set(), history: [] 
+                        };
+                    }
+                    groups[phone].totalSpent += (order.total_price || 0);
+                    groups[phone].visitCount += 1;
+                    // 🌟 修正：使用 trim() 確保同名毛孩不重複計算，並過濾掉空名字
+                    order.booking_pets?.forEach(p => {
+                        const cleanName = p.pet_name?.trim();
+                        if (cleanName) groups[phone].pets.add(cleanName);
+                    });
+                    groups[phone].history.push(order);
+                });
+                return Object.values(groups).sort((a, b) => b.visitCount - a.visitCount);
+            }, [orders]);
 
+            const [selectedCustomer, setSelectedCustomer] = useState(null); // 控制 CRM 詳情彈窗
             return (
                 <div className="min-h-screen pb-20">
                     <nav className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-soosi-green/10 px-6 py-4 flex justify-between items-center shadow-sm">
@@ -1065,6 +1266,7 @@ return baseInfo +
                             <img src="nav.png" className="w-10 h-10 object-contain" />
                             <span className="font-black text-soosi-dark text-xl tracking-tight">Soosi Admin</span>
                         </div>
+                        
 <div className="flex items-center gap-2">
     {/* 🌟 只有管理員才看得到修改密碼按鈕 */}
     {user?.email === ADMIN_EMAIL && (
@@ -1097,81 +1299,109 @@ return baseInfo +
                             <button onClick={() => setActiveTab('boarding')} className={`flex-1 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all ${activeTab === 'boarding' ? 'bg-soosi-wood text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
                                 <Icon name="home" size={16}/> 住宿安親
                             </button>
+                            <button onClick={() => setActiveTab('crm')} className={`flex-1 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all ${activeTab === 'crm' ? 'bg-soosi-dark text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
+                                <Icon name="users" size={16}/> 顧客管理
+                            </button>
+                            <button onClick={() => setActiveTab('calendar')} className={`flex-1 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all ${activeTab === 'calendar' ? 'bg-soosi-accent text-soosi-dark shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
+    <Icon name="calendar" size={16}/> 日曆檢視
+</button>
                         </div>
 
-                        {loading ? (
-                            <div className="py-20 text-center text-gray-400 font-black animate-pulse">載入資料中...</div>
-                        ) : (
-                            <div className="space-y-4">
-                                {filteredOrders.map(order => (
-                                    <div key={order.id} onClick={() => setSelectedOrder(order)} className="cute-card p-6 bg-white cursor-pointer relative overflow-hidden group">
-                                        <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${
-                                            order.status === 'confirmed' ? 'bg-soosi-green' : 
-                                            order.status === 'pending' ? 'bg-soosi-accent' : 
-                                            order.status === 'cancelled' ? 'bg-soosi-red' : 'bg-gray-200'
-                                        }`}></div>
-                                        
-                                        <div className="flex justify-between items-start mb-3">
-                                            <div>
-                                                {/* 🌟 1. 左上角改顯示預約日期 (check_in_date 或 booking_date) */}
-<div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-2">
-    {/* 🌟 修正：移除服務類型文字與圓點，直接顯示日期 */}
-    <span className="flex items-center gap-1">
-        <Icon name="calendar" size={12} className="mb-0.5"/>
-        {['boarding', 'daycare'].includes(order.service_type) 
-            ? `${order.check_in_date} ~ ${order.check_out_date?.slice(5)}` 
-            : (order.booking_date || order.check_in_date || order.booking_time?.split('T')[0])}
-    </span>
-    {/* 寵物數量 Badge */}
-    {order.booking_pets?.length > 1 && 
-        <span className="bg-soosi-wood/10 text-soosi-wood px-1.5 py-0.5 rounded-full ml-1">
-            {order.booking_pets.length}隻
-        </span>
-    }
-</div>
-                                                
-                                                {/* 🌟 2. 標題改為寵物名字 (變大) */}
-                                                <div className="font-black text-2xl text-soosi-dark flex items-center gap-2">
-                                                    {order.booking_pets?.map(p => p.pet_name).join(', ')}
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="font-black text-lg text-soosi-wood">${order.total_price}</div>
-                                                <span className={`status-badge block mt-1 ${
-                                                    order.status === 'pending' ? 'status-pending' :
-                                                    order.status === 'confirmed' ? 'status-confirmed' :
-                                                    order.status === 'cancelled' ? 'status-cancelled' : 'status-completed'
-                                                }`}>
-                                                    {order.status === 'pending' ? '待確認' :
-                                                     order.status === 'confirmed' ? '已確認' :
-                                                     order.status === 'cancelled' ? '已取消' : '已完成'}
-                                                </span>
-                                            </div>
-                                        </div>
+{loading ? (
+    <div className="py-20 text-center text-gray-400 font-black">載入資料中...</div>
+) : activeTab === 'crm' ? (
+    // --- 1. CRM 顧客列表 ---
+    <div className="space-y-3">
+        {customers.map(c => (
+            <div key={c.phone} onClick={() => setSelectedCustomer(c)} className="cute-card p-5 bg-white flex justify-between items-center cursor-pointer hover:border-soosi-green transition-all">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-soosi-green/10 text-soosi-green rounded-xl flex items-center justify-center font-black text-lg">{c.name[0]}</div>
+                    <div>
+                        <div className="font-black text-soosi-dark">{c.name}</div>
+                        <div className="text-[10px] text-gray-400 font-bold">
+                            {c.phone} · {c.visitCount}次來訪 · <span className="text-soosi-green">{c.pets.size} 隻毛孩</span>
+                        </div>
+                        <div className="text-[9px] text-gray-300 font-bold mt-0.5">
+                            {[...c.pets].join(', ')}
+                        </div>
+                    </div>
+                </div>
+                <div className="text-right">
+                    <div className="text-xs font-bold text-soosi-wood">總額 ${c.totalSpent}</div>
+                    <div className="text-[9px] text-gray-300 font-bold">查看紀錄 →</div>
+                </div>
+            </div>
+        ))}
+    </div>
+) : activeTab === 'calendar' ? (
+    // --- 2. 日曆視圖 (新增的部分) ---
+    <CalendarView orders={orders} onSelectOrder={setSelectedOrder} />
+) : (
+    // --- 3. 一般訂單列表 (美容/住宿) ---
+    <div className="space-y-4">
+        {filteredOrders.map(order => (
+            <div key={order.id} onClick={() => setSelectedOrder(order)} className="cute-card p-6 bg-white cursor-pointer relative overflow-hidden group">
+                <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${
+                    order.status === 'confirmed' ? 'bg-soosi-green' : 
+                    order.status === 'pending' ? 'bg-soosi-accent' : 
+                    order.status === 'cancelled' ? 'bg-soosi-red' : 'bg-gray-200'
+                }`}></div>
+                
+                <div className="flex justify-between items-start mb-3">
+                    <div>
+                        <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-2">
+                            <span className="flex items-center gap-1">
+                                <Icon name="calendar" size={12} className="mb-0.5"/>
+                                {['boarding', 'daycare'].includes(order.service_type) 
+                                    ? `${order.check_in_date} ~ ${order.check_out_date?.slice(5)}` 
+                                    : (order.booking_date || order.check_in_date || order.booking_time?.split('T')[0])}
+                            </span>
+                            {order.booking_pets?.length > 1 && 
+                                <span className="bg-soosi-wood/10 text-soosi-wood px-1.5 py-0.5 rounded-full ml-1">
+                                    {order.booking_pets.length}隻
+                                </span>
+                            }
+                        </div>
+                        
+                        <div className="font-black text-2xl text-soosi-dark flex items-center gap-2">
+                            {order.booking_pets?.map(p => p.pet_name).join(', ')}
+                        </div>
+                    </div>
+                    <div className="text-right">
+                        <div className="font-black text-lg text-soosi-wood">${order.total_price}</div>
+                        <span className={`status-badge block mt-1 ${
+                            order.status === 'pending' ? 'status-pending' :
+                            order.status === 'confirmed' ? 'status-confirmed' :
+                            order.status === 'cancelled' ? 'status-cancelled' : 'status-completed'
+                        }`}>
+                            {order.status === 'pending' ? '待確認' :
+                                order.status === 'confirmed' ? '已確認' :
+                                order.status === 'cancelled' ? '已取消' : '已完成'}
+                        </span>
+                    </div>
+                </div>
 
-                                        {/* 🌟 3. 下方改顯示主人資訊 */}
-                                        <div className="flex items-center gap-4 text-xs font-bold text-gray-400 mt-2">
-                                            <div className="flex items-center gap-1.5 text-soosi-green">
-                                                <Icon name="user" size={14}/>
-                                                {order.owner_name}
-                                            </div>
-                                            <div className="flex items-center gap-1.5">
-                                                <Icon name="phone" size={14}/>
-                                                {order.phone}
-                                            </div>
-                                        </div>
+                <div className="flex items-center gap-4 text-xs font-bold text-gray-400 mt-2">
+                    <div className="flex items-center gap-1.5 text-soosi-green">
+                        <Icon name="user" size={14}/>
+                        {order.owner_name}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <Icon name="phone" size={14}/>
+                        {order.phone}
+                    </div>
+                </div>
 
-                                        {/* 備註預覽 */}
-                                        {order.admin_note && (
-                                            <div className="mt-3 pt-3 border-t border-dashed text-xs text-soosi-wood/80 truncate">
-                                                <span className="font-bold">📝 備註：</span>{order.admin_note}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                                {filteredOrders.length === 0 && <div className="py-20 text-center text-gray-300 font-black">暫無相關預約訂單 🍃</div>}
-                            </div>
-                        )}
+                {order.admin_note && (
+                    <div className="mt-3 pt-3 border-t border-dashed text-xs text-soosi-wood/80 truncate">
+                        <span className="font-bold">📝 備註：</span>{order.admin_note}
+                    </div>
+                )}
+            </div>
+        ))}
+        {filteredOrders.length === 0 && <div className="py-20 text-center text-gray-300 font-black">暫無相關預約訂單 🍃</div>}
+    </div>
+)}
                     </main>
 
 <OrderModal 
@@ -1186,6 +1416,7 @@ return baseInfo +
                     
                     {/* 🌟 插入修改密碼彈窗 */}
                     <ChangePasswordModal isOpen={showPwdModal} onClose={() => setShowPwdModal(false)} />
+                    <CustomerDetailModal customer={selectedCustomer} onClose={() => setSelectedCustomer(null)} onSelectOrder={setSelectedOrder} />
                 </div>
             );
         };
