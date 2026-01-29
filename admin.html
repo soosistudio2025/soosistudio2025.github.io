@@ -184,7 +184,7 @@
                     <div className="absolute bottom-[-10%] right-[-10%] w-80 h-80 bg-soosi-wood/10 rounded-full blur-3xl"></div>
                     
                     <div className="glass-card w-full max-w-md p-10 text-center relative z-10 animate-in zoom-in duration-500">
-                        <img src="logo.png" className="w-40 mx-auto mb-6 drop-shadow-sm" alt="Soosi Logo" />
+                        <img src="nav.png" className="w-40 mx-auto mb-6 drop-shadow-sm" alt="Soosi Logo" />
                         
                         {!loginEmail ? (
                             <div className="space-y-4">
@@ -582,7 +582,7 @@
                 <div className="min-h-screen pb-20">
                     <nav className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-soosi-green/10 px-6 py-4 flex justify-between items-center shadow-sm">
                         <div className="flex items-center gap-3">
-                            <img src="logo.png" className="w-10 h-10 object-contain" />
+                            <img src="nav.png" className="w-10 h-10 object-contain" />
                             <span className="font-black text-soosi-dark text-xl tracking-tight">Soosi Admin</span>
                         </div>
                         <button onClick={() => supabase.auth.signOut()} className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-soosi-red transition-all"><Icon name="log-out"/></button>
