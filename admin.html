@@ -661,9 +661,13 @@ if (isBoarding && activeTab === 'daily') {
     const eat = reportData.dailyEat === '⭐ 其他...' ? reportData.dailyEatCustom : reportData.dailyEat;
     const toilet = reportData.dailyToilet === '⭐ 其他...' ? reportData.dailyToiletCustom : reportData.dailyToilet;
     
-    // 🌟 修改：只有在不是「⚪ 無」的情況下才產生這行文字
+// 🌟 修正：讓打字內容接在狀態（如：已完成）後面顯示
+    const careValue = reportData.dailyCare === '⭐ 其他...' 
+        ? (reportData.dailyCareCustom || '') 
+        : `${reportData.dailyCare}${reportData.dailyCareCustom ? ` (${reportData.dailyCareCustom})` : ''}`;
+
     const careLine = reportData.dailyCare !== '⚪ 無' 
-        ? `🏥 特殊照顧/投藥紀錄：${reportData.dailyCare === '⭐ 其他...' ? reportData.dailyCareCustom : reportData.dailyCare}\n` 
+        ? `🏥 特殊照顧/投藥紀錄：${careValue}\n` 
         : '';
 
     return `【${dateText} 住宿日記 📝】\n` +
@@ -1201,7 +1205,7 @@ return baseInfo +
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', async () => {
                 try {
-                    const registration = await navigator.serviceWorker.register('./sw-admin.js?v=8');
+                    const registration = await navigator.serviceWorker.register('./sw-admin.js?v=9');
                     console.log('Admin SW 註冊成功');
                 } catch (error) {
                     console.error('Admin SW 註冊失敗:', error);
