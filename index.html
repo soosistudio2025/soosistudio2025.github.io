@@ -1150,6 +1150,111 @@ isDaycare: false,
 // ★ 新增：集點卡資訊狀態
 const [loyaltyInfo, setLoyaltyInfo] = useState(null);
 
+// --- 新增：多寵物管理邏輯 ---
+const [petList, setPetList] = useState([{ id: 0, name: '寵物 1' }]);
+const [currentPetIdx, setCurrentPetIdx] = useState(0);
+
+// 定義需要隨 Tab 切換的「寵物專屬欄位」
+const PET_SPECIFIC_FIELDS = [
+    'pet_name', 'pet_type', 'breed', 'weight', 'sex', 'fix', 
+    'age', 'age_months', 'is_under_one', 
+    'social_aggression', 'social_play', 'grooming_temperament',
+    'chip_status', 'chip_id', 'preferred_clinic',
+    'medical_status', 'medical_history', 'medical_history_other',
+    'deworm', 'deworm_brand', 'vaccine', 'vaccine_url',
+    'personality', 'specialNotes', 'allergies',
+    'pica', 'pica_note', 'diet_type', 'diet_type_other', 'feeding_plan',
+    'litter_type', 'hasBoardingExp',
+    'isBarking', 'isFoodGuarding', 'useToiletPad', 'crateTraining',
+    'service_items', 'service_items_other',
+    'addGrooming', 'proof_type', 'proof_url', 'boarding_grooming_price',
+    'hasTrialStay', 'estimated_price', 'usePromo50'
+];
+
+// 儲存當前寵物資料到列表暫存區
+const saveCurrentPetToState = (idx) => {
+    setPetList(prev => {
+        const newList = [...prev];
+        const petData = {};
+        PET_SPECIFIC_FIELDS.forEach(field => {
+            petData[field] = formData[field];
+        });
+        newList[idx] = { 
+            ...newList[idx], 
+            ...petData,
+            name: formData.pet_name || `寵物 ${idx + 1}`
+        };
+        return newList;
+    });
+};
+
+// 切換 Tab
+const handleSwitchPet = (newIdx) => {
+    if (newIdx === currentPetIdx) return;
+    saveCurrentPetToState(currentPetIdx); // 1. 先存舊的
+    const targetPet = petList[newIdx];    // 2. 拿新的
+    
+    setFormData(prev => {
+        const nextState = { ...prev };
+        PET_SPECIFIC_FIELDS.forEach(field => {
+            if (['service_items', 'medical_history', 'diet_type', 'crateTraining'].includes(field)) {
+                nextState[field] = targetPet[field] || [];
+            } else if (field === 'pet_type') {
+                nextState[field] = targetPet[field] || 'dog';
+            } else if (field === 'addGrooming') {
+                nextState[field] = targetPet[field] === undefined ? undefined : targetPet[field];
+            } else {
+                nextState[field] = targetPet[field] || '';
+            }
+        });
+        return nextState;
+    });
+    setCurrentPetIdx(newIdx);
+};
+
+// 新增寵物
+const handleAddPet = () => {
+    saveCurrentPetToState(currentPetIdx);
+    const newIdx = petList.length;
+    setPetList(prev => [...prev, { id: newIdx, name: `寵物 ${newIdx + 1}` }]);
+    
+    // 清空表單供填寫
+    setFormData(prev => {
+        const nextState = { ...prev };
+        PET_SPECIFIC_FIELDS.forEach(field => {
+            if (['service_items', 'medical_history', 'diet_type', 'crateTraining'].includes(field)) nextState[field] = [];
+            else if (field === 'pet_type') nextState[field] = 'dog';
+            else if (field === 'estimated_price') nextState[field] = '';
+            else nextState[field] = '';
+        });
+        return nextState;
+    });
+    setCurrentPetIdx(newIdx);
+};
+
+// 刪除寵物
+const handleDeletePet = (e, idx) => {
+    e.stopPropagation();
+    if (petList.length <= 1) { alert("至少需要填寫一隻寵物資料喔！"); return; }
+    if (!confirm(`確定要刪除 ${petList[idx].name || '這隻寵物'} 的資料嗎？`)) return;
+
+    if (idx === currentPetIdx) {
+        const targetIdx = idx === 0 ? 1 : idx - 1;
+        const targetPet = petList[targetIdx];
+        setFormData(prev => {
+            const nextState = { ...prev };
+            PET_SPECIFIC_FIELDS.forEach(field => {
+                if (['service_items', 'medical_history', 'diet_type', 'crateTraining'].includes(field)) nextState[field] = targetPet[field] || [];
+                else nextState[field] = targetPet[field] || '';
+            });
+            return nextState;
+        });
+        setCurrentPetIdx(targetIdx);
+    } else if (idx < currentPetIdx) {
+        setCurrentPetIdx(prev => prev - 1);
+    }
+    setPetList(prev => prev.filter((_, i) => i !== idx));
+};
 // --- 更新：自動偵測優惠資格 (Debug 偵錯版) ---
     useEffect(() => {
         const checkLoyalty = async () => {
@@ -1368,41 +1473,44 @@ const riskType = useMemo(() => {
             }, [showFullSig]);
 
 const handleSubmit = async () => {
-                const newErrors = {};
-                const required = ['email', 'owner_name', 'phone', 'address', 'emergency_name', 'emergency_phone', 'pet_name', 'breed', 'weight', 'sex', 'fix', 'grooming_temperament', 'chip_status', 'medical_status', 'social_aggression', 'social_play'];
-                
-                required.forEach(f => { if(!formData[f]) newErrors[f] = '此欄位為必填'; });
-                if(formData.chip_status === '有晶片' && !formData.chip_id) newErrors.chip_status = '請輸入晶片號碼';
-                
-                // 驅蟲藥驗證
-                if(formData.deworm === '有' && !formData.deworm_brand) newErrors.deworm_brand = '請輸入驅蟲藥牌子';
+    // 0. 提交前，強制存回當前寵物資料
+    let finalPetList = [];
+    setPetList(prev => {
+        const newList = [...prev];
+        const currentPetData = {};
+        PET_SPECIFIC_FIELDS.forEach(field => { currentPetData[field] = formData[field]; });
+        newList[currentPetIdx] = { ...newList[currentPetIdx], ...currentPetData };
+        finalPetList = newList; 
+        return newList;
+    });
+    
+    await new Promise(r => setTimeout(r, 50)); // 等待狀態更新
 
-                // 美容服務驗證
-                if(!isBoarding && (!formData.service_items || formData.service_items.length === 0)) {
-                    newErrors.service_items = '請選擇至少一項服務內容';
-                }
-                
-                // 住宿試住驗證
-                if(isBoarding && formData.pet_type === 'dog' && !formData.hasTrialStay) {
-                    newErrors.hasTrialStay = '請先執行安親試住後再預約住宿';
-                }
-                
-                if(!lineConfirmed) newErrors.line = '請確認已加入 LINE';
-                if(!allTermsRead) newErrors.signature = '請先完成上方所有契約條款閱讀';
-                if(!realtimeSig) newErrors.signature = '請完成簽名';
-                
-                if (Object.keys(newErrors).length > 0) {
-                    setErrors(newErrors);
-                    const firstError = Object.keys(newErrors)[0];
-                    const el = document.getElementById(firstError);
-                    if(el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    else alert("請檢查必填欄位");
-                    return;
-                }
+    const newErrors = {};
+    const required = ['email', 'owner_name', 'phone', 'address', 'emergency_name', 'emergency_phone', 'pet_name', 'breed', 'weight', 'sex', 'fix', 'grooming_temperament', 'chip_status', 'medical_status', 'social_aggression', 'social_play'];
+    
+    required.forEach(f => { if(!formData[f]) newErrors[f] = '此欄位為必填'; });
+    if(formData.chip_status === '有晶片' && !formData.chip_id) newErrors.chip_status = '請輸入晶片號碼';
+    if(formData.deworm === '有' && !formData.deworm_brand) newErrors.deworm_brand = '請輸入驅蟲藥牌子';
+    if(!isBoarding && (!formData.service_items || formData.service_items.length === 0)) newErrors.service_items = '請選擇至少一項服務內容';
+    if(isBoarding && formData.pet_type === 'dog' && !formData.hasTrialStay) newErrors.hasTrialStay = '請先執行安親試住後再預約住宿';
+    
+    if(!lineConfirmed) newErrors.line = '請確認已加入 LINE';
+    if(!allTermsRead) newErrors.signature = '請先完成上方所有契約條款閱讀';
+    if(!realtimeSig) newErrors.signature = '請完成簽名';
+    
+    if (Object.keys(newErrors).length > 0) {
+        setErrors(newErrors);
+        const firstError = Object.keys(newErrors)[0];
+        const el = document.getElementById(firstError);
+        if(el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        else alert("請檢查必填欄位");
+        return;
+    }
 
-                setIsSubmitting(true);
+    setIsSubmitting(true);
 
-                try {
+    try {
                     // 1. 整理飼主資料
                     const ownerData = {
                         owner_name: formData.owner_name,
@@ -1707,8 +1815,29 @@ const handleSubmit = async () => {
 
 
                         {/* 新增：寵物詳細資料 (移到預約時間上方) */}
-                        <section className="cute-card p-8 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
-                            <div className="flex items-center gap-3 border-b-2 border-dashed border-soosi-wood/10 pb-4">
+<section className="cute-card p-8 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
+    {/* --- 新增：寵物切換 Tab --- */}
+    <div className="flex items-center gap-2 mb-2 overflow-x-auto hide-scrollbar pb-2">
+        {petList.map((pet, idx) => (
+            <div key={idx} onClick={() => handleSwitchPet(idx)}
+                className={`relative group flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 cursor-pointer transition-all select-none ${
+                    currentPetIdx === idx ? 'bg-soosi-wood text-white border-soosi-wood shadow-lg scale-105' : 'bg-white text-gray-400 border-gray-100 hover:border-soosi-wood/30'
+                }`}>
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${currentPetIdx === idx ? 'bg-white text-soosi-wood' : 'bg-gray-100'}`}>{idx + 1}</div>
+                <span className="text-sm font-bold whitespace-nowrap max-w-[80px] truncate">{(currentPetIdx === idx ? formData.pet_name : pet.pet_name) || pet.name}</span>
+                {petList.length > 1 && (
+                    <button onClick={(e) => handleDeletePet(e, idx)} className={`ml-1 p-1 rounded-full hover:bg-red-500 hover:text-white transition-colors ${currentPetIdx === idx ? 'text-white/70' : 'text-gray-300'}`}>
+                        <Icon name="x" size={12} />
+                    </button>
+                )}
+            </div>
+        ))}
+        <button onClick={handleAddPet} className="flex-shrink-0 flex items-center gap-1 px-4 py-2.5 rounded-xl border-2 border-dashed border-soosi-green/30 text-soosi-green font-bold text-xs hover:bg-soosi-green/5 transition-all active:scale-95">
+            <Icon name="plus" size={14} /><span>同住毛孩</span>
+        </button>
+    </div>
+    {/* ------------------------- */}
+    <div className="flex items-center gap-3 border-b-2 border-dashed border-soosi-wood/10 pb-4">
                                 <span className="text-2xl">🐾</span>
                                 <h3 className="text-lg font-black text-soosi-dark">寵物詳細資料</h3>
                             </div>
@@ -3462,7 +3591,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
             window.addEventListener('load', async () => {
                 try {
 // 1. 註冊 Service Worker (更新至 v=)
-                    const registration = await navigator.serviceWorker.register('./sw.js?v=6');
+                    const registration = await navigator.serviceWorker.register('./sw.js?v=7');
                     console.log('Service Worker 註冊成功');
 
                     // 2. 監聽更新：當偵測到 sw.js 內容有變動時
