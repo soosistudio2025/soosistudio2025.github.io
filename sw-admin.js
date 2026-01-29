@@ -3,9 +3,8 @@ const CACHE_NAME = 'soosi-admin-v3';
 const ASSETS_TO_CACHE = [
     './admin.html',
     './manifest-admin.json',
-    './logo.png'
+    './nav.png'
 ];
-
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
