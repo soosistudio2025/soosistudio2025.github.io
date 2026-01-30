@@ -918,7 +918,6 @@ const handleSearchHistory = async () => {
         const { data, error } = await supabase.rpc('search_guest_history', { 
             phone_input: formData.phone 
         });
-
         if (error) throw error;
 
         if (!data || data.length === 0) {
@@ -1009,74 +1008,103 @@ const petName = finalRecord.pet_name?.trim();
 };
 
 const handleApplyHistory = (record) => {
-    // 如果是「僅填入飼主資料」模式
-    if (record.ownerOnly) {
+        // 模式 1：僅填入飼主資料
+        if (record.ownerOnly) {
+            setFormData(prev => ({
+                ...prev,
+                owner_name: record.owner_name,
+                phone: record.phone,
+                email: record.email,
+                address: record.address,
+                owner_id: record.owner_id,
+                emergency_name: record.emergency_name,
+                emergency_phone: record.emergency_phone
+            }));
+            setLineConfirmed(true);
+            setShowHistoryModal(false);
+            alert("✅ 已填入飼主基本資料。");
+            return;
+        }
+
+        // 模式 2：導入寵物完整檔案資訊
         setFormData(prev => ({
-            ...prev,
-            owner_name: record.owner_name,
-            phone: record.phone,
-            email: record.email,
-            address: record.address,
-            owner_id: record.owner_id,
-            emergency_name: record.emergency_name,
-            emergency_phone: record.emergency_phone,
-            owner_id: record.owner_id // 🌟 補上這行，身分證才會導入
+            ...prev, // 保留當前狀態（如多寵模式下的其他分頁內容）
+
+            // A. 飼主檔案 (自動補全空缺)
+            owner_name: record.owner_name || prev.owner_name,
+            phone: record.phone || prev.phone,
+            email: record.email || prev.email,
+            address: record.address || prev.address,
+            owner_id: record.owner_id || prev.owner_id,
+            emergency_name: record.emergency_name || prev.emergency_name,
+            emergency_phone: record.emergency_phone || prev.emergency_phone,
+
+            // B. 寵物基本身分檔案
+            pet_name: record.pet_name,
+            pet_type: record.pet_type || 'dog',
+            breed: record.breed,
+            weight: record.weight,
+            sex: record.sex,
+            fix: record.fix,
+            age: Math.floor(record.age || 0),
+            age_months: Math.round(((record.age || 0) % 1) * 12) || '',
+            is_under_one: record.age < 1 && record.age > 0,
+
+            // C. 醫療與性情檔案
+            medical_status: record.medical_status,
+            medical_history: record.medical_history || [],
+            medical_history_other: record.medical_history_other || '',
+            chip_status: record.chip_status || '',
+            chip_id: record.chip_id || '',
+            preferred_clinic: record.preferred_clinic || '',
+            grooming_temperament: record.grooming_temperament || '',
+            social_aggression: record.social_aggression || '',
+            social_play: record.social_play || '',
+            personality: record.personality || '',
+            specialNotes: record.specialNotes || '',
+            allergies: record.allergies || '',
+
+            // D. 生活習慣與調查檔案 (住宿模式重要資訊)
+            pica: record.pica || '',
+            pica_note: record.pica_note || '',
+            diet_type: record.diet_type || [],
+            diet_type_other: record.diet_type_other || '',
+            feeding_plan: record.feeding_plan || '',
+            hasBoardingExp: record.hasBoardingExp || '',
+            vaccine: record.vaccine || '',
+            vaccine_url: record.vaccine_url || '',
+            deworm: record.deworm || '',
+            deworm_brand: record.deworm_brand || '',
+            isBarking: record.isBarking || '',
+            isFoodGuarding: record.isFoodGuarding || '',
+            useToiletPad: record.useToiletPad || '',
+            crateTraining: record.crateTraining || [],
+            litter_type: record.litter_type || '',
+
+// E. ★ 強制重置：絕對不可導入的「交易內容」與特定圖片 ★
+            addGrooming: '',
+            bookingDate: '',
+            bookingTime: '',
+            checkInDate: '',
+            checkOutDate: '',
+            estimated_price: '',
+            price_per_night: '',
+            holiday_surcharge: '',
+            boarding_grooming_price: '',
+            service_items: [],
+            service_items_other: '',
+            usePromo50: false,
+            proof_type: '',
+            proof_url: '',    // 🌟 確保清空洗澡證明
+            vaccine_url: ''   // 🌟 確保清空疫苗手冊照片
         }));
+
         setLineConfirmed(true);
+        setIsSearching(false);
         setShowHistoryModal(false);
-        alert("✅ 已填入基本資料。");
-        return;
-    }
-        // 1. 定義要排除的欄位
-    const { 
-        id, created_at, 
-        
-        // --- 1. 排除所有時間欄位 ---
-        booking_date, check_in_date, check_out_date, 
-        bookingDate, bookingTime, bookingTimeEnd,
-        checkInDate, checkOutDate,
-        
-        // --- 2. 排除簽名與優惠狀態 (關鍵修改) ---
-        signature_url, 
-        use_promo_50,  // 資料庫欄位 (Snake Case)
-        usePromo50,    // 前端狀態 (Camel Case) - 必須排除，否則會蓋掉
-        
-        // --- 3. 排除金額與住宿加購設定 ---
-        addGrooming,              
-        proof_type, proof_url,    
-        estimated_price,          
-        price_per_night,          
-        holiday_surcharge,        
-        boarding_grooming_price,  
-
-        // --- 4. 排除本次服務內容 ---
-        service_items,            
-        service_items_other,      
-        
-        ...reusableData 
-    } = record;
-
-    setFormData(prev => ({
-        ...prev,
-        ...reusableData,
-        // 確保電話維持正確
-        phone: formData.phone,
-        // 🌟 強制重置優惠狀態，讓 useEffect 重新檢查並觸發通知
-        usePromo50: false 
-    }));
-
-    setLineConfirmed(true);
-    setIsSearching(false);
-    setShowHistoryModal(false);
+        alert(`✅ 已帶入 ${record.pet_name} 的身分檔案，預約細節已重置。`);
+    };
     
-    // 智慧提醒
-    if (isBoarding && record.source === 'grooming') {
-        alert(`✅ 已帶入 ${record.pet_name} 的美容資料！\n請記得補填下方的「住宿問卷」喔！`);
-    } else {
-        alert(`✅ 已帶入 ${record.pet_name} 的過往資料。`);
-    }
-};
-
 // --- 處理照片/收據上傳 (已加入自動壓縮) ---
             const handleFileUpload = async (e) => {
                 const file = e.target.files[0];
@@ -1332,17 +1360,20 @@ const PET_SPECIFIC_FIELDS = [
     'hasTrialStay', 'estimated_price', 'usePromo50'
 ];
 
-// 儲存當前寵物資料到列表暫存區
 const saveCurrentPetToState = (idx) => {
     setPetList(prev => {
         const newList = [...prev];
         const petData = {};
+        
+        // 🌟 自動化同步：確保所有在 PET_SPECIFIC_FIELDS 定義的欄位都會被存入列表
         PET_SPECIFIC_FIELDS.forEach(field => {
             petData[field] = formData[field];
         });
+
         newList[idx] = { 
             ...newList[idx], 
             ...petData,
+            // 保持索引標籤的名字更新
             name: formData.pet_name || `寵物 ${idx + 1}`
         };
         return newList;
@@ -1352,24 +1383,41 @@ const saveCurrentPetToState = (idx) => {
 // 切換 Tab
 const handleSwitchPet = (newIdx) => {
     if (newIdx === currentPetIdx) return;
-    saveCurrentPetToState(currentPetIdx); // 1. 先存舊的
-    const targetPet = petList[newIdx];    // 2. 拿新的
     
-    setFormData(prev => {
-        const nextState = { ...prev };
-        PET_SPECIFIC_FIELDS.forEach(field => {
-            if (['service_items', 'medical_history', 'diet_type', 'crateTraining'].includes(field)) {
-                nextState[field] = targetPet[field] || [];
-            } else if (field === 'pet_type') {
-                nextState[field] = targetPet[field] || 'dog';
-            } else if (field === 'addGrooming') {
-                nextState[field] = targetPet[field] === undefined ? undefined : targetPet[field];
-            } else {
-                nextState[field] = targetPet[field] || '';
-            }
-        });
-        return nextState;
+    // 1. 先把「當前正在填寫」的資料存回列表
+    const currentPetData = {};
+    PET_SPECIFIC_FIELDS.forEach(field => {
+        currentPetData[field] = formData[field];
     });
+
+    setPetList(prev => {
+        const newList = [...prev];
+        newList[currentPetIdx] = { 
+            ...newList[currentPetIdx], 
+            ...currentPetData,
+            name: formData.pet_name || `寵物 ${currentPetIdx + 1}`
+        };
+        
+        // 2. 存完後立即從 newList 讀取目標寵物的資料
+        const targetPet = newList[newIdx];
+        setFormData(prev => {
+            const nextState = { ...prev };
+            PET_SPECIFIC_FIELDS.forEach(field => {
+                if (['service_items', 'medical_history', 'diet_type', 'crateTraining'].includes(field)) {
+                    nextState[field] = targetPet[field] || [];
+                } else if (field === 'pet_type') {
+                    nextState[field] = targetPet[field] || 'dog';
+                } else if (['is_under_one', 'hasTrialStay', 'addGrooming', 'usePromo50'].includes(field)) {
+                    nextState[field] = targetPet[field] || false;
+                } else {
+                    nextState[field] = targetPet[field] || '';
+                }
+            });
+            return nextState;
+        });
+        return newList;
+    });
+    
     setCurrentPetIdx(newIdx);
 };
 
@@ -1671,183 +1719,86 @@ const handleSubmit = async () => {
     
     await new Promise(r => setTimeout(r, 50)); // 等待狀態更新
 
-const newErrors = {};
-    
-// --- 1. 基礎必填項目 (美容、住宿通用) ---
-    // 這裡只保留最基本的聯絡資料與寵物資訊
-    const required = [
-        'email', 'owner_name', 'phone', 'pet_name', 'breed', 
-        'weight', 'sex', 'fix', 'grooming_temperament', 
-        'medical_status', 'social_aggression', 'image_auth'
-    ]; 
-    if (formData.pet_type === 'dog') required.push('social_play');
-    required.forEach(f => { if(!formData[f]) newErrors[f] = '此欄位為必填'; });
+// 1. 先將當前正在編輯的寵物資料同步回列表
+        saveCurrentPetToState(currentPetIdx);
 
-    // --- 2. 年齡/月齡檢查 ---
-    if (formData.is_under_one ? !formData.age_months : !formData.age) {
-        newErrors[formData.is_under_one ? 'age_months' : 'age'] = '請填寫年齡';
-    }
+        const newErrors = {};
 
-    // --- 3. 住宿/安親專用：額外必填項目 ---
-    if (isBoarding) {
-        // 住宿模式才需要這些詳細資料
-        const boardingRequired = [
-            'owner_id', 'address', 'emergency_name', 'emergency_phone', 
-            'chip_status', 'personality'
-        ];
-        boardingRequired.forEach(f => { if(!formData[f]) newErrors[f] = '住宿需填寫此欄位'; });
-
-        // 住宿天數與日期檢查
-        if (!formData.checkInDate) newErrors.checkInDate = '請選擇日期';
-        if (!formData.isDaycare && !formData.checkOutDate) newErrors.checkOutDate = '請選擇日期';
-        
-        // 狗狗住宿強制試住檢查
-        if (formData.pet_type === 'dog' && !formData.isDaycare) {
-            if (formData.hasTrialStay !== true) {
-                alert("⛔ 無法提交！\n\n為了毛孩的安全，狗狗住宿前「必須」先完成安親試住。");
-                setIsSubmitting(false);
-                return;
-            }
-        }
-        
-        // 飲食與生活習慣檢查
-        if (!formData.pica) newErrors.pica = '請選擇異食狀況';
-        if (!formData.diet_type || formData.diet_type.length === 0) newErrors.diet_type = '請勾選飲食習慣';
-        if (!formData.feeding_plan) newErrors.feeding_plan = '請填寫餵食說明';
-
-        if (formData.pet_type === 'dog') {
-            ['isBarking', 'isFoodGuarding', 'useToiletPad'].forEach(f => { if(!formData[f]) newErrors[f] = '必填'; });
-            if (!formData.crateTraining || formData.crateTraining.length === 0) newErrors.crateTraining = '請勾選狀況';
+        // 🌟 2. 共享欄位檢查 (飼主資訊、日期、金額)
+        // 這些是整張訂單共用的，只要填一次
+        const sharedRequired = ['email', 'owner_name', 'phone', 'image_auth'];
+        if (isBoarding) {
+            sharedRequired.push('owner_id', 'address', 'emergency_name', 'emergency_phone', 'estimated_price');
+            if (!formData.checkInDate) newErrors.checkInDate = '請選擇日期';
+            if (!formData.isDaycare && !formData.checkOutDate) newErrors.checkOutDate = '請選擇日期';
         } else {
-            if (!formData.litter_type) newErrors.litter_type = '請選擇貓砂習慣';
+            sharedRequired.push('bookingDate', 'bookingTime', 'estimated_price');
         }
-    } else {
-        // 美容模式：檢查是否有選服務項目
-        if (!formData.service_items || formData.service_items.length === 0) newErrors.service_items = '請選擇服務內容';
-    }
+        sharedRequired.forEach(f => { if(!formData[f]) newErrors[f] = '此欄位為必填'; });
 
-setIsSubmitting(true);
+        // 🌟 3. 毛孩個別欄位檢查 (迴圈掃描每一隻寵物)
+        petList.forEach((pet, index) => {
+            const petLabel = petList.length > 1 ? `第 ${index + 1} 隻毛孩(${pet.pet_name || '未命名'})：` : '';
+            const suffix = `_${index}`; // 用於標記錯誤位置
 
-    try {
-        // --- 🌟 第一步：處理簽名檔上傳 ---
-        let finalSignatureUrl = '';
-        if (realtimeSig) {
-            // 1. 將 Base64 轉為 File
-            const sigFile = dataURLtoFile(realtimeSig, `sig_${Date.now()}.png`);
-            // 2. 壓縮簽名檔
-            const compressedSig = await compressImageFile(sigFile);
-            // 3. 上傳至 signatures bucket
-            const sigFileName = `sig_${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
-            const { error: sigError } = await supabase.storage
-                .from('signatures')
-                .upload(sigFileName, compressedSig);
+            // 基本身分資料
+            const petBasic = ['pet_name', 'breed', 'weight', 'sex', 'fix', 'grooming_temperament', 'medical_status', 'social_aggression'];
+            if (pet.pet_type === 'dog') petBasic.push('social_play');
+            petBasic.forEach(f => { if(!pet[f]) newErrors[`${f}${suffix}`] = `${petLabel}必填`; });
 
-            if (sigError) throw new Error("簽名檔上傳失敗，請檢查網路");
+            // 年齡檢查
+            if (pet.is_under_one ? !pet.age_months : !pet.age) {
+                newErrors[`${pet.is_under_one ? 'age_months' : 'age'}${suffix}`] = `${petLabel}請填寫年齡`;
+            }
 
-            // 4. 取得公開網址
-            const { data: { publicUrl } } = supabase.storage
-                .from('signatures')
-                .getPublicUrl(sigFileName);
-            
-            finalSignatureUrl = publicUrl;
-        }
+            // 模式特定檢查
+            if (isBoarding) {
+                // 住宿/安親專用
+                if(!pet.chip_status) newErrors[`chip_status${suffix}`] = `${petLabel}必填`;
+                if(!pet.personality) newErrors[`personality${suffix}`] = `${petLabel}必填`;
+                if(!pet.pica) newErrors[`pica${suffix}`] = `${petLabel}請選擇異食狀況`;
+                if(!pet.diet_type || pet.diet_type.length === 0) newErrors[`diet_type${suffix}`] = `${petLabel}請勾選飲食習慣`;
+                if(!pet.feeding_plan) newErrors[`feeding_plan${suffix}`] = `${petLabel}請填寫餵食說明`;
 
-        // --- 第二步：整理所有資料 ---
-        
-        // 1. 整理飼主資料
-        const ownerData = {
-            owner_name: formData.owner_name,
-            phone: formData.phone,
-            email: formData.email,
-            address: formData.address,
-            owner_id: formData.owner_id,
-            emergency_name: formData.emergency_name,
-            emergency_phone: formData.emergency_phone
-        };
-
-        // 2. 整理所有寵物資料 (傳送陣列)
-        const finalPetsToSubmit = allPetsCurrentState.map(pet => ({
-            pet_name: pet.pet_name,
-            pet_type: pet.pet_type,
-            breed: pet.breed,
-            weight: pet.weight,
-            sex: pet.sex,
-            fix: pet.fix,
-            age: pet.age || (pet.age_months ? pet.age_months/12 : 0),
-            is_under_one: pet.is_under_one,
-            medical_status: pet.medical_status,
-            medical_history: pet.medical_history || [],
-            medical_history_other: pet.medical_history_other,
-            deworm: pet.deworm,
-            deworm_brand: pet.deworm_brand,
-            vaccine: pet.vaccine,
-            vaccine_url: pet.vaccine_url,
-            chip_status: pet.chip_status,
-            chip_id: pet.chip_id,
-            preferred_clinic: pet.preferred_clinic,
-            personality: pet.personality,
-            specialNotes: pet.specialNotes,
-            grooming_temperament: pet.grooming_temperament,
-            social_aggression: pet.social_aggression,
-            social_play: pet.social_play,
-            pica: pet.pica,
-            pica_note: pet.pica_note,
-            diet_type: pet.diet_type || [],
-            diet_type_other: pet.diet_type_other,
-            feeding_plan: pet.feeding_plan,
-            allergies: pet.allergies,
-            litter_type: pet.litter_type,
-            hasBoardingExp: pet.hasBoardingExp,
-            isBarking: pet.isBarking,
-            isFoodGuarding: pet.isFoodGuarding,
-            useToiletPad: pet.useToiletPad,
-            crateTraining: pet.crateTraining || [],
-            addGrooming: pet.addGrooming,
-            boarding_grooming_price: pet.boarding_grooming_price,
-            service_items: pet.service_items || [],
-            service_items_other: pet.service_items_other,
-            usePromo50: pet.usePromo50
-        }));
-
-        // 3. 整理合約資料
-        const contractData = {
-            raw_data: formData,
-            checkInDate: formData.checkInDate,
-            checkOutDate: formData.checkOutDate,
-            stayDuration: stayDuration,
-            hasTrialStay: formData.hasTrialStay,
-            addGrooming: formData.addGrooming,
-            proof_type: formData.proof_type,
-            proof_url: formData.proof_url,
-            bookingDate: formData.bookingDate || formData.checkInDate,
-            bookingTime: formData.bookingTime,
-            bookingTimeEnd: formData.bookingTimeEnd,
-            service_items: formData.service_items || [],
-            service_items_other: formData.service_items_other,
-            usePromo50: formData.usePromo50,
-            estimated_price: calculatedTotalPrice, // 🌟 使用計算後的總價
-            signature_url: finalSignatureUrl // 🌟 這裡改存上傳後的 URL
-        };
-
-        // 4. 呼叫後端 RPC (傳送 finalPetsToSubmit 陣列)
-        const { data, error } = await supabase.rpc('submit_form_data', {
-            p_owner_data: ownerData,
-            p_pet_data: finalPetsToSubmit,
-            p_contract_data: contractData,
-            p_is_boarding: isBoarding
+                // 狗狗住宿強制試住檢查 (排除安親)
+                if (pet.pet_type === 'dog' && !formData.isDaycare) {
+                    if (pet.hasTrialStay !== true) {
+                        alert(`⛔ 無法提交！\n\n${petLabel}住宿前必須先完成安親試住。`);
+                        throw new Error("試住驗證未通過"); // 中斷執行
+                    }
+                    ['isBarking', 'isFoodGuarding', 'useToiletPad'].forEach(f => { if(!pet[f]) newErrors[`${f}${suffix}`] = `必填`; });
+                    if(!pet.crateTraining || pet.crateTraining.length === 0) newErrors[`crateTraining${suffix}`] = `必填`;
+                } else if (pet.pet_type === 'cat') {
+                    if(!pet.litter_type) newErrors[`litter_type${suffix}`] = `${petLabel}請選擇貓砂習慣`;
+                }
+            } else {
+                // 美容模式：檢查項目
+                if (!pet.service_items || pet.service_items.length === 0) {
+                    newErrors[`service_items${suffix}`] = `${petLabel}請選擇服務內容`;
+                }
+            }
         });
 
-        if (error) throw error;
+        // 🌟 4. 執行攔截、報錯與自動分頁跳轉
+        setErrors(newErrors);
+        if (Object.keys(newErrors).length > 0) {
+            const firstErrorKey = Object.keys(newErrors)[0];
+            const match = firstErrorKey.match(/_(\d+)$/);
+            
+            if (match) {
+                const errorIdx = parseInt(match[1]);
+                handleSwitchPet(errorIdx); // 🚀 自動跳轉到有錯誤的那一隻寵物頁面
+                alert(`⚠️ 還有欄位未填齊：\n${newErrors[firstErrorKey]}`);
+            } else {
+                alert(`⚠️ 請檢查：${newErrors[firstErrorKey]}`);
+            }
+            
+            // 捲動到錯誤位置
+            document.getElementById(firstErrorKey)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return; 
+        }
 
-        alert("🎉 提交成功！");
-        window.location.reload();
-
-    } catch (error) {
-        console.error('Submission error:', error);
-        alert("提交失敗：" + (error.message || "請檢查網路連線"));
-    } finally {
-        setIsSubmitting(false);
-    }
+        setIsSubmitting(true);
             };
 
             // 🌟 優化：提取總金額計算邏輯 (避免顯示與實際提交金額不一致)
@@ -3943,7 +3894,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
             window.addEventListener('load', async () => {
                 try {
 // 1. 註冊 Service Worker (更新至 v=)
-                    const registration = await navigator.serviceWorker.register('./sw.js?v=13');
+                    const registration = await navigator.serviceWorker.register('./sw.js?v=14');
                     console.log('Service Worker 註冊成功');
 
                     // 2. 監聽更新：當偵測到 sw.js 內容有變動時
