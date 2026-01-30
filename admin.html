@@ -271,7 +271,8 @@ const handleVerify = async () => {
 // --- 訂單詳情 Modal (乾淨版：無複製/導航，鍵盤正常) ---
         const OrderModal = ({ user, order, onClose, onUpdateStatus, onUpdateNote, onDeleteOrder, onUpdateFullOrder }) => {
             if (!order) return null;
-            const [showReport, setShowReport] = useState(false);
+const [showReport, setShowReport] = useState(false);
+            const [reportType, setReportType] = useState('grooming'); // 🌟 新增：區分報告類型
             const [localNote, setLocalNote] = useState(order.admin_note || '');
             const [isEditing, setIsEditing] = useState(false);
             const [showAuth, setShowAuth] = useState(false); 
@@ -498,10 +499,22 @@ const formatAge = (pet) => {
                                             </button>
                                         ))}
                                     </div>
-                                    <button onClick={() => setShowReport(true)} className="mt-3 w-full py-3 bg-soosi-wood/10 text-soosi-wood border-2 border-dashed border-soosi-wood/20 rounded-xl font-black text-sm flex items-center justify-center gap-2 hover:bg-soosi-wood hover:text-white transition-all group">
-                                        <Icon name="clipboard-list" size={18} className="group-hover:scale-110 transition-transform"/> 
-                                        產生{isBoarding ? '住宿' : '美容'}報告 (複製給飼主)
-                                    </button>
+{/* 🌟 修正：按鈕拆分為「美容報告」與「住宿報告」 */}
+                                    <div className="grid grid-cols-2 gap-2 mt-3">
+                                        {/* 美容報告按鈕：如果是美容單直接顯示；若是住宿單則在有加購美容時顯示 */}
+                                        {(!isBoarding || (isBoarding && getRaw('addGrooming'))) && (
+                                            <button onClick={() => { setReportType('grooming'); setShowReport(true); }} 
+                                                className={`py-3 bg-soosi-green/10 text-soosi-green border-2 border-dashed border-soosi-green/20 rounded-xl font-black text-xs flex items-center justify-center gap-1 hover:bg-soosi-green hover:text-white transition-all group ${!isBoarding ? 'col-span-2' : ''}`}>
+                                                <Icon name="scissors" size={16}/> 產生美容報告
+                                            </button>
+                                        )}
+                                        {isBoarding && (
+                                            <button onClick={() => { setReportType('boarding'); setShowReport(true); }} 
+                                                className={`py-3 bg-soosi-wood/10 text-soosi-wood border-2 border-dashed border-soosi-wood/20 rounded-xl font-black text-xs flex items-center justify-center gap-1 hover:bg-soosi-wood hover:text-white transition-all group ${!getRaw('addGrooming') ? 'col-span-2' : ''}`}>
+                                                <Icon name="home" size={16}/> 產生住宿報告
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="bg-white p-5 rounded-3xl border border-soosi-wood/10 shadow-sm relative group">
                                     <label className="text-xs font-bold text-soosi-wood mb-1 flex items-center gap-1">
@@ -757,14 +770,15 @@ const formatAge = (pet) => {
                     <ReportGeneratorModal 
                         isOpen={showReport} 
                         onClose={() => setShowReport(false)} 
-                        order={order} 
+                        order={order}
+                        reportType={reportType}
                     />
                 </div>
             );
         };
         
 // --- 智慧報告生成器 (支援 美容完工 / 住宿日記 / 住宿退房) ---
-        const ReportGeneratorModal = ({ isOpen, onClose, order }) => {
+const ReportGeneratorModal = ({ isOpen, onClose, order, reportType }) => { // 🌟 接收參數
             const [activeTab, setActiveTab] = useState('finish'); // 'daily'(日記) 或 'finish'(完工/退房)
             
             // 資料狀態
@@ -791,8 +805,8 @@ const formatAge = (pet) => {
                 if (isOpen && order) {
                     const isBoarding = ['boarding', 'daycare'].includes(order.service_type);
                     
-                    // 預設 Tab：如果是住宿，預設顯示「每日日記」；美容則只有「完工」
-                    setActiveTab(isBoarding ? 'daily' : 'finish');
+// 🌟 修正：根據點擊的按鈕類型 (reportType) 決定預設分頁
+                    setActiveTab(reportType === 'boarding' ? 'daily' : 'finish');
 
                     // 1. 日期處理
                     const today = new Date();
@@ -848,40 +862,39 @@ if (isBoarding && activeTab === 'daily') {
 }
 
                 // --- B. 完工/退房通知模式 (包含美容與住宿退房) ---
-                // 處理寵物名與服務類型
+// 處理寵物名與服務類型 (🌟 根據 reportType 強制決定標籤)
                 const petInfo = order.booking_pets.map(p => {
-                    let service = '美容';
-                    if (order.service_type === 'boarding') service = '住宿退房';
-                    else if (order.service_type === 'daycare') service = '安親接回';
-                    else {
+                    let service = reportType === 'grooming' ? '美容' : '住宿退房';
+                    if (reportType === 'boarding' && order.service_type === 'daycare') service = '安親接回';
+                    
+                    // 如果是美容報告，細分大小美容
+                    if (reportType === 'grooming') {
                         if (p.service_items?.includes('basic')) service = '小美容';
                         if (p.service_items?.includes('full')) service = '大美容';
                     }
                     return `${p.pet_name}(${service})`;
                 }).join('、');
 
-// --- B. 完工/退房通知模式 ---
-const baseInfo = `【${dateText} ${petInfo}】\n` +
-                 `整體狀況 - ${reportData.general}\n` +
-                 `皮膚狀況 - ${reportData.skin}\n\n` +
-                 `費用明細：\n${reportData.feeDetail}\n\n` +
-                 `--------------------------------\n` +
-                 `🎉 可以來接 [ ${petsName} ] 回家囉!\n`;
+// --- B. 完工/退房通知模式 (修正：只有純美容單與住宿報告才顯示費用) ---
+                const showFee = reportType === 'boarding' || (reportType === 'grooming' && !isBoarding);
+                
+                const baseInfo = `【${dateText} ${petInfo}】\n` +
+                                 `整體狀況 - ${reportData.general}\n` +
+                                 `皮膚狀況 - ${reportData.skin}\n\n` +
+                                 (showFee ? `費用明細：\n${reportData.feeDetail}\n\n` : '') +
+                                 `--------------------------------\n`;
+                if (reportType === 'grooming') {
+                    return baseInfo +
+                           `✨ [ ${petsName} ] 洗香香完畢囉！\n` +
+                           `📸 (照片/影片將另行傳送)\n` +
+                           (isBoarding ? '' : `—\n請於通知後兩小時內接回，逾時將依安親費計費：\n${reportData.overtime || '(尚未選擇費率)'}\n`) +
+                           `—\n有任何問題隨時都可以詢問~`;
+                }
 
-// 🌟 住宿/安親：移除逾時費，加上感謝語
-if (isBoarding) {
-    return baseInfo +
-           `謝謝你們的信任，期待下次再來玩～～\n` +
-           `—\n` +
-           `有任何問題隨時都可以詢問~`;
-} 
-
-// 🌟 美容：保留逾時費提醒
-return baseInfo +
-       `請於通知後兩小時內將毛孩接回，逾時將依安親照顧費收費，未滿一小時以一小時計算：\n` +
-       `${reportData.overtime ? reportData.overtime : '(尚未選擇費率)'}\n` +
-       `—\n` +
-       `有任何問題隨時都可以詢問~`;
+                return baseInfo +
+                       `🎉 可以來接 [ ${petsName} ] 回家囉!\n` +
+                       `謝謝你們的信任，期待下次再來玩～～\n` +
+                       `—\n有任何問題隨時都可以詢問~`;
             };
 
             const handleCopy = () => {
@@ -998,13 +1011,15 @@ return baseInfo +
                                             <textarea value={reportData.skin} onChange={e=>setReportData({...reportData, skin: e.target.value})} className="w-full p-2 rounded-xl border border-gray-200 text-sm h-16 resize-none focus:border-soosi-wood outline-none"/>
                                         </div>
                                     </div>
-
-                                    <div>
-                                        <label className="text-xs font-bold text-soosi-wood mb-1 block">費用明細</label>
-                                        <textarea value={reportData.feeDetail} onChange={e=>setReportData({...reportData, feeDetail: e.target.value})} className="w-full p-2 rounded-xl border border-gray-200 text-sm h-16 resize-none focus:border-soosi-wood outline-none"/>
-                                    </div>
-{/* 🌟 修改：只有在美容模式 (非住宿) 下才顯示逾時費率按鈕 */}
-{!isBoarding && activeTab === 'finish' && (
+{/* 只有「住宿報告」或「一般美容單的美容報告」才顯示費用輸入框 */}
+                                    {(reportType === 'boarding' || (reportType === 'grooming' && !isBoarding)) && (
+                                        <div>
+                                            <label className="text-xs font-bold text-soosi-wood mb-1 block">費用明細</label>
+                                            <textarea value={reportData.feeDetail} onChange={e=>setReportData({...reportData, feeDetail: e.target.value})} className="w-full p-2 rounded-xl border border-gray-200 text-sm h-16 resize-none focus:border-soosi-wood outline-none"/>
+                                        </div>
+                                    )}
+{/* 只有「一般美容單」且「完工分頁」才顯示逾時費率按鈕 */}
+{!isBoarding && reportType === 'grooming' && activeTab === 'finish' && (
     <div className="bg-white p-3 rounded-xl border border-soosi-wood/10">
         <label className="text-xs font-bold text-soosi-wood mb-2 block flex items-center gap-1">
             <Icon name="clock" size={12}/> 逾時費率 (點擊帶入)
@@ -1657,7 +1672,7 @@ const CalendarView = ({ orders, onSelectOrder }) => {
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', async () => {
                 try {
-                    const registration = await navigator.serviceWorker.register('./sw-admin.js?v=12');
+                    const registration = await navigator.serviceWorker.register('./sw-admin.js?v=13');
                     console.log('Admin SW 註冊成功');
                 } catch (error) {
                     console.error('Admin SW 註冊失敗:', error);
