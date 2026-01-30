@@ -1673,64 +1673,44 @@ const handleSubmit = async () => {
 
 const newErrors = {};
     
-    // --- 1. 基礎必填項目 ---
+// --- 1. 基礎必填項目 (美容、住宿通用) ---
+    // 這裡只保留最基本的聯絡資料與寵物資訊
     const required = [
-        'email', 'owner_name', 'phone', 'owner_id', 'address', 
-        'emergency_name', 'emergency_phone', 'pet_name', 'breed', 
-        'weight', 'sex', 'fix', 'grooming_temperament', 'chip_status', 
-        'medical_status', 'social_aggression', 'image_auth', 'personality'
+        'email', 'owner_name', 'phone', 'pet_name', 'breed', 
+        'weight', 'sex', 'fix', 'grooming_temperament', 
+        'medical_status', 'social_aggression', 'image_auth'
     ]; 
     if (formData.pet_type === 'dog') required.push('social_play');
     required.forEach(f => { if(!formData[f]) newErrors[f] = '此欄位為必填'; });
-// 🌟 新增：如果有任何錯誤，就停止送出並顯示提示
-    if (Object.keys(newErrors).length > 0) {
-        setErrors(newErrors);
-        setIsSubmitting(false);
-        alert("⚠️ 請檢查紅字標示欄位是否填寫正確");
-        
-        // 自動捲動到第一個錯誤的地方
-        const firstErrorId = Object.keys(newErrors)[0];
-        document.getElementById(firstErrorId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return; 
-    }
+
     // --- 2. 年齡/月齡檢查 ---
     if (formData.is_under_one ? !formData.age_months : !formData.age) {
         newErrors[formData.is_under_one ? 'age_months' : 'age'] = '請填寫年齡';
     }
 
-    // --- 3. 醫療病史細項檢查 (勾選「有」則必填項目或說明) ---
-    if (formData.medical_status === '有') {
-        const hasHistoryItems = formData.medical_history && formData.medical_history.length > 0;
-        const hasHistoryOther = formData.medical_history_other && formData.medical_history_other.trim() !== '';
-        if (!hasHistoryItems && !hasHistoryOther) {
-            newErrors.medical_status = '請至少選擇一項病史或在下方填寫說明';
-        }
-    }
-
-    // --- 4. 住宿專用檢查 ---
+    // --- 3. 住宿/安親專用：額外必填項目 ---
     if (isBoarding) {
-        // 住宿金額各項
+        // 住宿模式才需要這些詳細資料
+        const boardingRequired = [
+            'owner_id', 'address', 'emergency_name', 'emergency_phone', 
+            'chip_status', 'personality'
+        ];
+        boardingRequired.forEach(f => { if(!formData[f]) newErrors[f] = '住宿需填寫此欄位'; });
+
+        // 住宿天數與日期檢查
         if (!formData.checkInDate) newErrors.checkInDate = '請選擇日期';
         if (!formData.isDaycare && !formData.checkOutDate) newErrors.checkOutDate = '請選擇日期';
-// 🌟 新增：狗狗住宿「未試住」強制阻擋邏輯 🌟
+        
+        // 狗狗住宿強制試住檢查
         if (formData.pet_type === 'dog' && !formData.isDaycare) {
-            // 如果選了「否」(false) 或 沒選
             if (formData.hasTrialStay !== true) {
-                alert("⛔ 無法提交！\n\n為了毛孩的安全，狗狗住宿前「必須」先完成安親試住。\n\n請先將服務類型改為「安親」進行預約，謝謝配合！");
-                setIsSubmitting(false); // 停止 loading
-                return; // 直接中斷，不送出
+                alert("⛔ 無法提交！\n\n為了毛孩的安全，狗狗住宿前「必須」先完成安親試住。");
+                setIsSubmitting(false);
+                return;
             }
         }
-        // 狗狗不加購美容的證明檢查
-        if (formData.pet_type === 'dog' && formData.addGrooming === false) {
-            if (!formData.proof_type) {
-                newErrors.addGrooming = '請選擇證明提供方式';
-            } else if (formData.proof_type === 'upload' && !formData.proof_url) {
-                newErrors.addGrooming = '請確實上傳洗澡收據照片';
-            }
-        }
-
-        // 飲食與生活習慣 (與先前邏輯一致...)
+        
+        // 飲食與生活習慣檢查
         if (!formData.pica) newErrors.pica = '請選擇異食狀況';
         if (!formData.diet_type || formData.diet_type.length === 0) newErrors.diet_type = '請勾選飲食習慣';
         if (!formData.feeding_plan) newErrors.feeding_plan = '請填寫餵食說明';
@@ -1742,6 +1722,7 @@ const newErrors = {};
             if (!formData.litter_type) newErrors.litter_type = '請選擇貓砂習慣';
         }
     } else {
+        // 美容模式：檢查是否有選服務項目
         if (!formData.service_items || formData.service_items.length === 0) newErrors.service_items = '請選擇服務內容';
     }
 
@@ -3962,7 +3943,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
             window.addEventListener('load', async () => {
                 try {
 // 1. 註冊 Service Worker (更新至 v=)
-                    const registration = await navigator.serviceWorker.register('./sw.js?v=12');
+                    const registration = await navigator.serviceWorker.register('./sw.js?v=13');
                     console.log('Service Worker 註冊成功');
 
                     // 2. 監聽更新：當偵測到 sw.js 內容有變動時
