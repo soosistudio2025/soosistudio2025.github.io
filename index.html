@@ -1318,9 +1318,10 @@ estimated_price: '',
     pet_type: 'dog', 
 isDaycare: false,
     bookingTimeEnd: '', // 新增：安親結束時間
-    usePromo50: false, // 50天優惠方案狀態
-image_auth: '', // 🌟 新增：影像授權狀態 (預設空字串)
-});
+usePromo50: false, // 50天優惠方案狀態
+            image_auth: '', // 🌟 新增：影像授權狀態 (預設空字串)
+            isWalking: '', // 🌟 新增：是否散步
+        });
 
 // ★ 新增：集點卡資訊狀態
             const [loyaltyInfo, setLoyaltyInfo] = useState(null);
@@ -1355,8 +1356,8 @@ const PET_SPECIFIC_FIELDS = [
     'deworm', 'deworm_brand', 'vaccine', 'vaccine_url',
     'personality', 'specialNotes', 'allergies',
     'pica', 'pica_note', 'diet_type', 'diet_type_other', 'feeding_plan',
+'isBarking', 'isFoodGuarding', 'useToiletPad', 'isWalking', 'crateTraining',
     'litter_type', 'hasBoardingExp',
-    'isBarking', 'isFoodGuarding', 'useToiletPad', 'crateTraining',
     'service_items', 'service_items_other',
     'addGrooming', 'proof_type', 'proof_url', 'boarding_grooming_price',
     'hasTrialStay', 'estimated_price', 'usePromo50'
@@ -2996,9 +2997,10 @@ if (view === 'success') {
                                 {formData.pet_type === 'dog' && (
                                     <div className="space-y-6 pt-4 border-t border-dashed border-gray-200 animate-in fade-in">
                                         {[
-                                            { id: 'isBarking', label: '會容易吠叫嗎', required: true, options: ['會', '不會'] },
+{ id: 'isBarking', label: '會容易吠叫嗎', required: true, options: ['會', '不會'] },
                                             { id: 'isFoodGuarding', label: '會護食嗎', required: true, options: ['會', '不會'] },
                                             { id: 'useToiletPad', label: '會在尿布墊上上廁所嗎', required: true, options: ['會', '不會'] },
+                                            { id: 'isWalking', label: '是否要外出散步', required: true, options: ['是', '否'] },
                                         ].map((q, idx) => (
                                             <div key={idx} className="space-y-2">
                                                 <label className="text-sm font-bold text-soosi-dark ml-1">{q.label} {q.required && <span className="text-red-500">*</span>}</label>
@@ -4094,7 +4096,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
             window.addEventListener('load', async () => {
                 try {
 // 1. 註冊 Service Worker (更新至 v=)
-                    const registration = await navigator.serviceWorker.register('./sw.js?v=15');
+                    const registration = await navigator.serviceWorker.register('./sw.js?v=16');
                     console.log('Service Worker 註冊成功');
 
                     // 2. 監聽更新：當偵測到 sw.js 內容有變動時
