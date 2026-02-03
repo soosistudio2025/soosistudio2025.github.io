@@ -276,8 +276,56 @@ const [showReport, setShowReport] = useState(false);
             const [localNote, setLocalNote] = useState(order.admin_note || '');
             const [isEditing, setIsEditing] = useState(false);
             const [showAuth, setShowAuth] = useState(false); 
-            const [showDeleteAuth, setShowDeleteAuth] = useState(false); 
+const [showDeleteAuth, setShowDeleteAuth] = useState(false); 
             const [editData, setEditData] = useState(JSON.parse(JSON.stringify(order))); 
+            
+            // 🌟 新增：重寄信件狀態
+            const [isResending, setIsResending] = useState(false);
+
+            // 🌟 新增：重寄信件函式
+            const handleResendEmail = async () => {
+                if (!order.email) return alert("❌ 此訂單沒有填寫 Email，無法寄送。");
+                if (!confirm(`確定要重寄契約副本至 ${order.email} 嗎？`)) return;
+
+                setIsResending(true);
+                try {
+                    // 重組傳送給 Edge Function 的資料 (確保與 index.html 格式一致)
+                    const rawProps = order.raw_data?.raw_data || order.raw_data || {};
+const payload = {
+                        ...rawProps,
+                        owner_name: order.owner_name,
+                        phone: order.phone,
+                        email: order.email,
+                        total_price: order.total_price,
+                        isBoarding: ['boarding', 'daycare'].includes(order.service_type),
+                        isDaycare: order.service_type === 'daycare',
+                        signature_url: order.signature_url,
+                        signed_at: order.created_at, // 🌟 傳入當初簽署(訂單成立)的時間
+                        petList: order.booking_pets.map(p => ({
+                            ...p,
+                            addGrooming: p.add_grooming, // 轉換欄位名稱以符合後端預期
+                            boarding_grooming_price: p.boarding_grooming_price
+                        }))
+                    };
+
+                    const resp = await fetch(`${supabaseUrl}/functions/v1/send-resend-email`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${supabaseKey}`
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!resp.ok) throw new Error("發送失敗");
+                    alert("✅ 契約副本已成功重新寄出！");
+                } catch (e) {
+                    console.error("重寄失敗:", e);
+                    alert("❌ 重寄失敗，請稍後再試或檢查 Edge Function 狀態。");
+                } finally {
+                    setIsResending(false);
+                }
+            };
 
             const isBoarding = order.service_type === 'boarding' || order.service_type === 'daycare';
             const getRaw = (key) => editData.raw_data?.raw_data?.[key] || editData.raw_data?.[key] || '';
@@ -508,13 +556,27 @@ const formatAge = (pet) => {
                                                 <Icon name="scissors" size={16}/> 產生美容報告
                                             </button>
                                         )}
-                                        {isBoarding && (
+{isBoarding && (
                                             <button onClick={() => { setReportType('boarding'); setShowReport(true); }} 
                                                 className={`py-3 bg-soosi-wood/10 text-soosi-wood border-2 border-dashed border-soosi-wood/20 rounded-xl font-black text-xs flex items-center justify-center gap-1 hover:bg-soosi-wood hover:text-white transition-all group ${!getRaw('addGrooming') ? 'col-span-2' : ''}`}>
                                                 <Icon name="home" size={16}/> 產生住宿報告
                                             </button>
                                         )}
                                     </div>
+                                    
+                                    {/* 🌟 新增：重寄信件按鈕 */}
+                                    <button 
+                                        onClick={handleResendEmail}
+                                        disabled={isResending || !order.email}
+                                        className={`w-full mt-2 py-2 rounded-xl text-xs font-black border-2 transition-all flex items-center justify-center gap-2 ${
+                                            !order.email 
+                                            ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed' 
+                                            : 'bg-white text-soosi-dark border-gray-200 hover:bg-gray-50 active:scale-95'
+                                        }`}
+                                    >
+                                        {isResending ? <Icon name="loader-2" className="animate-spin" size={14}/> : <Icon name="mail" size={14}/>}
+                                        {order.email ? `重寄契約至信箱 (${order.email})` : '未填寫信箱 (無法重寄)'}
+                                    </button>
                                 </div>
                                 <div className="bg-white p-5 rounded-3xl border border-soosi-wood/10 shadow-sm relative group">
                                     <label className="text-xs font-bold text-soosi-wood mb-1 flex items-center gap-1">
