@@ -1784,30 +1784,49 @@ const sharedRequired = ['owner_name', 'phone', 'image_auth'];
             p_is_boarding: isBoarding
         };
 
-        // 3. 呼叫 Supabase RPC
+// 3. 呼叫 Supabase RPC
         const { data, error: rpcError } = await supabase.rpc('submit_form_data', finalSubmitData);
         if (rpcError) throw rpcError;
 
-// 4. 提交成功後的處理
-alert("🎉 契約提交成功！我們已收到您的資料，期待與毛孩見面！");
+        // 🌟 串接 Resend：傳送完整資料給後端
+        let contractHtmlFromServer = "";
+        try {
+            const edgeResp = await fetch(`${supabaseUrl}/functions/v1/send-resend-email`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${supabaseKey}`
+                },
+                body: JSON.stringify({
+                    ...formData,          // 傳送 owner_id, emergency 等所有資訊
+                    petList: petListToValidate, 
+                    total_price: calculatedTotalPrice, 
+                    isBoarding: isBoarding, 
+                    signature_url: signature_url 
+                })
+            });
+            const edgeResult = await edgeResp.json();
+            contractHtmlFromServer = edgeResult.contractHtml; 
+        } catch (e) {
+            console.error("調用失敗:", e);
+        }
 
-// 🌟 核心修正：延遲 2.5 秒再執行重置與導航，讓使用者有足夠時間閱讀 Toast
-await new Promise(resolve => setTimeout(resolve, 2500));
+        alert("🎉 契約提交成功！");
+        await new Promise(resolve => setTimeout(resolve, 1500));
 
-// 🌟 新增：判斷是否有填 Email，決定顯示哪種成功頁面
-const hasEmail = formData.email && formData.email.trim() !== '';
-setView('success'); // 切換到成功頁面
-setSuccessData({ 
-    hasEmail, 
-    email: formData.email,
-    // 準備要傳給契約頁面的資料
-    contractData: {
-        ...formData,
-        estimated_price: calculatedTotalPrice,
-        signature_url,
-        petList: petListToValidate
-    }
-}); 
+        const hasEmail = formData.email && formData.email.trim() !== '';
+        setView('success'); 
+        setSuccessData({ 
+            hasEmail, 
+            email: formData.email,
+            contractHtml: contractHtmlFromServer, // 將後端傳回的 HTML 存入狀態
+            contractData: {
+                ...formData,
+                estimated_price: calculatedTotalPrice,
+                signature_url,
+                petList: petListToValidate
+            }
+        });
         
         // 延後 0.5 秒再清空資料，確保畫面切換回首頁後才在背景重置，視覺上最順暢
         setTimeout(() => {
@@ -1988,97 +2007,16 @@ if (view === 'success') {
 
                 {/* 按鈕區域 */}
                 <div className="space-y-3 pt-4">
-                    <button 
+<button 
                         onClick={() => {
-                            // 開啟新視窗顯示契約
                             const contractWindow = window.open('', '_blank');
                             if (contractWindow) {
-                                contractWindow.document.write(`
-                                    <!DOCTYPE html>
-                                    <html lang="zh-TW">
-                                    <head>
-                                        <meta charset="UTF-8">
-                                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                                        <title>宿洗寵物 Soosi Pet | 契約副本</title>
-                                        <style>
-                                            body { font-family: 'Zen Maru Gothic', 'Noto Sans TC', sans-serif; padding: 20px; background: #F9F7F2; color: #3F3F3F; }
-                                            .contract-container { max-width: 800px; margin: 0 auto; background: white; padding: 40px; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
-                                            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #6A8D73; padding-bottom: 20px; }
-                                            .section { margin-bottom: 20px; }
-                                            .section-title { font-size: 18px; font-weight: bold; color: #8E6E53; margin-bottom: 10px; border-left: 4px solid #8E6E53; padding-left: 10px; }
-                                            .info-row { display: flex; margin-bottom: 8px; }
-                                            .info-label { width: 120px; font-weight: bold; color: #6A8D73; flex-shrink: 0; }
-                                            .info-value { flex-grow: }
-                                            .signature-area { margin-top: 40px; text-align: center; }
-                                            .signature-img { max-width: 200px; border: 1px dashed #ccc; padding: 10px; margin: 0 auto; }
-                                            .footer { text-align: center; margin-top: 40px; font-size: 12px; color: #999; }
-                                            @media print { body { background: white; } .contract-container { box-shadow: none; padding: 0; } }
-                                        </style>
-                                    </head>
-                                    <body>
-                                        <div class="contract-container">
-                                            <div class="header">
-                                                <h1>宿洗寵物 Soosi Pet | 數位契約副本</h1>
-                                                <p>契約編號：${new Date().getTime()}</p>
-                                                <p>建立時間：${new Date().toLocaleString('zh-TW')}</p>
-                                            </div>
-                                            
-                                            <div class="section">
-                                                <div class="section-title">飼主資料</div>
-                                                <div class="info-row"><div class="info-label">姓名：</div><div class="info-value">${successData.contractData.owner_name}</div></div>
-                                                <div class="info-row"><div class="info-label">電話：</div><div class="info-value">${successData.contractData.phone}</div></div>
-                                                ${successData.hasEmail ? `<div class="info-row"><div class="info-label">Email：</div><div class="info-value">${successData.contractData.email}</div></div>` : ''}
-                                                <div class="info-row"><div class="info-label">地址：</div><div class="info-value">${successData.contractData.address}</div></div>
-                                            </div>
-                                            
-                                            <div class="section">
-                                                <div class="section-title">寵物資料</div>
-                                                ${successData.contractData.petList.map((pet, idx) => `
-                                                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed #eee;">
-                                                        <div class="info-row"><div class="info-label">寵物 ${idx+1} 名字：</div><div class="info-value">${pet.pet_name || '未命名'}</div></div>
-                                                        <div class="info-row"><div class="info-label">種類：</div><div class="info-value">${pet.pet_type === 'dog' ? '狗狗' : '貓咪'}</div></div>
-                                                        <div class="info-row"><div class="info-label">品種：</div><div class="info-value">${pet.breed}</div></div>
-                                                        <div class="info-row"><div class="info-label">體重：</div><div class="info-value">${pet.weight} kg</div></div>
-                                                        <div class="info-row"><div class="info-label">年齡：</div><div class="info-value">${pet.is_under_one ? pet.age_months + ' 個月' : pet.age + ' 歲'}</div></div>
-                                                        <div class="info-row"><div class="info-label">性別：</div><div class="info-value">${pet.sex}</div></div>
-                                                        <div class="info-row"><div class="info-label">結紮：</div><div class="info-value">${pet.fix}</div></div>
-                                                        <div class="info-row"><div class="info-label">晶片狀態：</div><div class="info-value">${pet.chip_status} ${pet.chip_id ? '(' + pet.chip_id + ')' : ''}</div></div>
-                                                        <div class="info-row"><div class="info-label">性情：</div><div class="info-value">${pet.grooming_temperament}</div></div>
-                                                        <div class="info-row"><div class="info-label">病史：</div><div class="info-value">${pet.medical_status} ${pet.medical_history.length > 0 ? '(' + pet.medical_history.join(', ') + ')' : ''}</div></div>
-                                                    </div>
-                                                `).join('')}
-                                            </div>
-                                            
-                                            <div class="section">
-                                                <div class="section-title">服務資訊</div>
-                                                <div class="info-row"><div class="info-label">服務類型：</div><div class="info-value">${successData.contractData.isBoarding ? '住宿' : '美容'}</div></div>
-                                                ${successData.contractData.isBoarding ? `
-                                                    <div class="info-row"><div class="info-label">入住日期：</div><div class="info-value">${successData.contractData.checkInDate}</div></div>
-                                                    <div class="info-row"><div class="info-label">退房日期：</div><div class="info-value">${successData.contractData.checkOutDate}</div></div>
-                                                    ${successData.contractData.addGrooming ? '<div class="info-row"><div class="info-label">加購美容：</div><div class="info-value">是</div></div>' : ''}
-                                                ` : `
-                                                    <div class="info-row"><div class="info-label">預約日期：</div><div class="info-value">${successData.contractData.bookingDate}</div></div>
-                                                    <div class="info-row"><div class="info-label">預約時間：</div><div class="info-value">${successData.contractData.bookingTime}</div></div>
-                                                `}
-                                                <div class="info-row"><div class="info-label">總金額：</div><div class="info-value">NT$ ${successData.contractData.estimated_price}</div></div>
-                                            </div>
-                                            
-                                            <div class="signature-area">
-                                                <div class="section-title">數位簽名</div>
-                                                <div class="signature-img">
-                                                    <img src="${successData.contractData.signature_url}" alt="簽名" style="max-width: 100%;" />
-                                                </div>
-                                                <p style="margin-top: 10px; font-size: 14px;">簽署時間：${new Date().toLocaleString('zh-TW')}</p>
-                                            </div>
-                                            
-                                            <div class="footer">
-                                                <p>宿洗寵物工作室 | 台中市清水區新興路142-1號</p>
-                                                <p>電話：0981-775-553 | 特寵業字第 S1140030號</p>
-                                            </div>
-                                        </div>
-                                    </body>
-                                    </html>
-                                `);
+                                // 🌟 關鍵修改：直接調用從後端拿到的 contractHtml
+                                if (successData.contractHtml) {
+                                    contractWindow.document.write(successData.contractHtml);
+                                } else {
+                                    contractWindow.document.write('<h3>正在生成契約副本，請稍後再試或檢查信箱。</h3>');
+                                }
                                 contractWindow.document.close();
                             } else {
                                 alert('無法開啟新視窗，請檢查瀏覽器的彈出視窗設定');
