@@ -1390,7 +1390,8 @@ const CalendarView = ({ orders, onSelectOrder }) => {
 // --- 主 Dashboard (完整版：包含全能標籤偵測) ---
         const Dashboard = ({ user }) => {
             const [showPwdModal, setShowPwdModal] = useState(false);
-            const [activeTab, setActiveTab] = useState('grooming');
+const [activeTab, setActiveTab] = useState('grooming');
+            const [busySlots, setBusySlots] = useState([]); // 存放已關閉時段
             const [orders, setOrders] = useState([]);
             const [loading, setLoading] = useState(true);
             const [selectedOrder, setSelectedOrder] = useState(null);
@@ -1471,7 +1472,25 @@ sex: pet.sex,
                 }
             };
 
-            useEffect(() => { fetchOrders(); }, [activeTab]);
+const fetchBusySlots = async (date) => {
+                const { data } = await supabase.from('busy_slots').select('time_slot').eq('date', date);
+                setBusySlots(data?.map(d => d.time_slot) || []);
+            };
+
+            const toggleSlot = async (date, slot) => {
+                if (busySlots.includes(slot)) {
+                    await supabase.from('busy_slots').delete().eq('date', date).eq('time_slot', slot);
+                    setBusySlots(prev => prev.filter(s => s !== slot));
+                } else {
+                    await supabase.from('busy_slots').insert({ date, time_slot: slot });
+                    setBusySlots(prev => [...prev, slot]);
+                }
+            };
+
+            useEffect(() => { 
+                fetchOrders(); 
+                if (activeTab === 'slots') fetchBusySlots(new Date().toLocaleDateString('en-CA'));
+            }, [activeTab]);
 
             const filteredOrders = useMemo(() => {
                 return orders.filter(o => 
@@ -1542,20 +1561,26 @@ sex: pet.sex,
                             />
                         </div>
 
-                        <div className="flex bg-white p-1.5 rounded-[1.5rem] shadow-sm border border-gray-100">
-                            <button onClick={() => setActiveTab('grooming')} className={`flex-1 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all ${activeTab === 'grooming' ? 'bg-soosi-green text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
-                                <Icon name="scissors" size={16}/> 洗澡美容
-                            </button>
-                            <button onClick={() => setActiveTab('boarding')} className={`flex-1 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all ${activeTab === 'boarding' ? 'bg-soosi-wood text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
-                                <Icon name="home" size={16}/> 住宿安親
-                            </button>
-                            <button onClick={() => setActiveTab('crm')} className={`flex-1 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all ${activeTab === 'crm' ? 'bg-soosi-dark text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
-                                <Icon name="users" size={16}/> 顧客管理
-                            </button>
-                            <button onClick={() => setActiveTab('calendar')} className={`flex-1 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all ${activeTab === 'calendar' ? 'bg-soosi-accent text-soosi-dark shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
-                                <Icon name="calendar" size={16}/> 日曆檢視
-                            </button>
-                        </div>
+<div className="grid grid-cols-6 gap-2 bg-white p-2 rounded-[2rem] shadow-sm border border-gray-100">
+    {/* 前二個佔 3 格 (平分第一排) */}
+    <button onClick={() => setActiveTab('grooming')} className={`col-span-3 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all ${activeTab === 'grooming' ? 'bg-soosi-green text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
+        <Icon name="scissors" size={16}/> 洗澡美容
+    </button>
+    <button onClick={() => setActiveTab('boarding')} className={`col-span-3 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all ${activeTab === 'boarding' ? 'bg-soosi-wood text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
+        <Icon name="home" size={16}/> 住宿安親
+    </button>
+    
+    {/* 後三個各佔 2 格 (平分第二排) */}
+    <button onClick={() => setActiveTab('crm')} className={`col-span-2 py-3 rounded-2xl font-black text-[10px] flex flex-col items-center gap-1 transition-all ${activeTab === 'crm' ? 'bg-soosi-dark text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
+        <Icon name="users" size={14}/> 顧客管理
+    </button>
+    <button onClick={() => setActiveTab('calendar')} className={`col-span-2 py-3 rounded-2xl font-black text-[10px] flex flex-col items-center gap-1 transition-all ${activeTab === 'calendar' ? 'bg-soosi-accent text-soosi-dark shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
+        <Icon name="calendar" size={14}/> 日曆檢視
+    </button>
+    <button onClick={() => setActiveTab('slots')} className={`col-span-2 py-3 rounded-2xl font-black text-[10px] flex flex-col items-center gap-1 transition-all ${activeTab === 'slots' ? 'bg-red-500 text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
+        <Icon name="clock" size={14}/> 時段設定
+    </button>
+</div>
 
                         {loading ? (
                             <div className="py-20 text-center text-gray-400 font-black">載入資料中...</div>
@@ -1583,9 +1608,33 @@ sex: pet.sex,
                                     </div>
                                 ))}
                             </div>
-                        ) : activeTab === 'calendar' ? (
+) : activeTab === 'calendar' ? (
                             // --- 2. 日曆視圖 ---
                             <CalendarView orders={orders} onSelectOrder={setSelectedOrder} />
+                        ) : activeTab === 'slots' ? (
+                            // --- 4. 時段管理介面 ---
+                            <div className="bg-white p-6 rounded-[2rem] shadow-sm space-y-6 animate-in fade-in">
+                                <div className="flex justify-between items-center border-b pb-4">
+                                    <h3 className="font-black text-lg text-soosi-dark">美容預約時段開關</h3>
+                                    <input type="date" className="admin-input w-40" defaultValue={new Date().toLocaleDateString('en-CA')} onChange={e => fetchBusySlots(e.target.value)} id="slot_date_picker" />
+                                </div>
+                                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                                    {Array.from({length: 21}, (_, i) => {
+                                        const h = Math.floor(i/2) + 10;
+                                        const m = i % 2 === 0 ? '00' : '30';
+                                        const slot = `${h}:${m}`;
+                                        const isBusy = busySlots.includes(slot);
+                                        return (
+                                            <button key={slot} 
+                                                onClick={() => toggleSlot(document.getElementById('slot_date_picker').value, slot)}
+                                                className={`py-3 rounded-xl text-xs font-bold border transition-all ${isBusy ? 'bg-red-100 text-red-500 border-red-200' : 'bg-green-50 text-green-600 border-green-100'}`}>
+                                                {slot} {isBusy ? '已額滿' : '可預約'}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <p className="text-[10px] text-gray-400 font-bold text-center">※ 點擊按鈕可手動關閉該時段，前台預約頁面將同步隱藏該選項。</p>
+                            </div>
                         ) : (
                             // --- 3. 一般訂單列表 (美容/住宿) - 已包含標籤偵測 ---
                             <div className="space-y-4">
@@ -1723,29 +1772,76 @@ sex: pet.sex,
                 </div>
             );
         };
-
-        const App = () => {
+// 🌟 新增：更新通知組件 (置頂避開劉海版)
+        const UpdatePrompt = ({ show, onUpdate }) => {
+            if (!show) return null;
+            return (
+                <div className="fixed left-6 right-6 z-[400] md:left-1/2 md:-translate-x-1/2 md:w-auto md:min-w-[320px] top-[calc(env(safe-area-inset-top)+1.5rem)]">
+                    <div className="bg-white p-4 rounded-2xl shadow-2xl border-2 border-soosi-green flex items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-500">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-soosi-green text-white rounded-full flex items-center justify-center shrink-0 animate-spin">
+                                <Icon name="refresh-cw" size={20} />
+                            </div>
+                            <div>
+                                <h4 className="font-black text-soosi-dark text-sm">發現新版本！</h4>
+                                <p className="text-[10px] text-gray-400 font-bold">Admin 系統已更新 ✨</p>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={onUpdate}
+                            className="bg-soosi-green text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg shadow-soosi-green/20 hover:bg-[#5a7a63] active:scale-95 transition-all whitespace-nowrap"
+                        >
+                            立即更新
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+const App = () => {
             const [session, setSession] = useState(null);
+            // 🌟 新增：更新提示狀態
+            const [showUpdate, setShowUpdate] = useState(false);
+
             useEffect(() => {
                 supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
                 supabase.auth.onAuthStateChange((_event, session) => setSession(session));
             }, []);
-            return session ? <Dashboard user={session.user} /> : <LoginView onLogin={() => {}} />;
+
+            // 🌟 新增：Service Worker 監聽邏輯 (Admin 版)
+            useEffect(() => {
+                if ('serviceWorker' in navigator) {
+                    const registerSW = async () => {
+                        try {
+                            // 註冊 Admin SW (這裡版本號 v=16 記得跟 sw-admin.js 配合更新)
+                            const registration = await navigator.serviceWorker.register('./sw-admin.js?v=16');
+                            
+                            registration.addEventListener('updatefound', () => {
+                                const newWorker = registration.installing;
+                                newWorker.addEventListener('statechange', () => {
+                                    // 當新版本安裝完成 (installed) 且目前已經有控制權 (controller) 代表是更新
+                                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                        setShowUpdate(true);
+                                    }
+                                });
+                            });
+                        } catch (error) {
+                            console.error('Admin SW 註冊失敗:', error);
+                        }
+                    };
+                    registerSW();
+                }
+            }, []);
+
+            return (
+                <>
+                    {/* 顯示更新提示 */}
+                    <UpdatePrompt show={showUpdate} onUpdate={() => window.location.reload()} />
+                    {session ? <Dashboard user={session.user} /> : <LoginView onLogin={() => {}} />}
+                </>
+            );
         };
 
         ReactDOM.createRoot(document.getElementById('root')).render(<App />);
-    </script>
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', async () => {
-                try {
-                    const registration = await navigator.serviceWorker.register('./sw-admin.js?v=14');
-                    console.log('Admin SW 註冊成功');
-                } catch (error) {
-                    console.error('Admin SW 註冊失敗:', error);
-                }
-            });
-        }
     </script>
 </body>
 </html>

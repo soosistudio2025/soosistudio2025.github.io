@@ -836,10 +836,39 @@ const HistoryModal = ({ records, onClose, onSelect }) => {
     );
 };
 
-        const App = () => {
+const App = () => {
         
         // Toast 狀態
         const [toast, setToast] = useState(null);
+        // 🌟 新增：更新提示狀態
+        const [showUpdate, setShowUpdate] = useState(false);
+
+        // 🌟 新增：Service Worker 監聽邏輯 (整合在 React 內)
+        useEffect(() => {
+            if ('serviceWorker' in navigator) {
+                const registerSW = async () => {
+                    try {
+                        // 註冊 SW (這裡的版本號 v=20 記得要跟你的 sw.js 同步或更高)
+                        const registration = await navigator.serviceWorker.register('./sw.js?v=22');
+                        
+                        // 監聽更新
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                // 當新版本安裝完成 (installed) 且目前已經有控制權 (controller) 代表是更新而非首次載入
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // ✨ 觸發我們自訂的 UI，而不是醜醜的 alert
+                                    setShowUpdate(true);
+                                }
+                            });
+                        });
+                    } catch (error) {
+                        console.error('SW 註冊失敗:', error);
+                    }
+                };
+                registerSW();
+            }
+        }, []);
         // 🌟 新增：成功頁面所需的狀態
 const [successData, setSuccessData] = useState(null);
 
@@ -866,6 +895,35 @@ const [successData, setSuccessData] = useState(null);
                 <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[300] flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl backdrop-blur-md animate-in slide-in-from-top-4 duration-300 ${toast.type === 'success' ? 'bg-soosi-green/90 text-white shadow-soosi-green/30' : 'bg-red-500/90 text-white shadow-red-500/30'}`}>
                     <Icon name={toast.type === 'success' ? "check-circle" : "alert-circle"} size={24} className="shrink-0" />
                     <span className="font-bold text-sm tracking-wide">{toast.message}</span>
+                </div>
+            );
+        };
+// 🌟 新增：更新通知組件 (風格化提示 - 置頂避開劉海版)
+        const UpdatePrompt = ({ show, onUpdate }) => {
+            if (!show) return null;
+            return (
+                // 修改說明：
+                // 1. top-[calc(env(safe-area-inset-top)+1.5rem)] -> 自動計算劉海高度並往下推 1.5rem
+                // 2. z-[400] -> 確保在最上層
+                <div className="fixed left-6 right-6 z-[400] md:left-1/2 md:-translate-x-1/2 md:w-auto md:min-w-[320px] top-[calc(env(safe-area-inset-top)+1.5rem)]">
+                    {/* 動畫改為從上方滑入 (slide-in-from-top-4) */}
+                    <div className="bg-white p-4 rounded-2xl shadow-2xl border-2 border-soosi-green flex items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-500">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-soosi-green text-white rounded-full flex items-center justify-center shrink-0 animate-spin-slow">
+                                <Icon name="refresh-cw" size={20} />
+                            </div>
+                            <div>
+                                <h4 className="font-black text-soosi-dark text-sm">發現新版本！</h4>
+                                <p className="text-[10px] text-gray-400 font-bold">更新以獲得最佳體驗 ✨</p>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={onUpdate}
+                            className="bg-soosi-green text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg shadow-soosi-green/20 hover:bg-[#5a7a63] active:scale-95 transition-all whitespace-nowrap"
+                        >
+                            立即更新
+                        </button>
+                    </div>
                 </div>
             );
         };
@@ -906,8 +964,10 @@ const [view, setView] = useState('entry');
             const [isSubmitting, setIsSubmitting] = useState(false);
             const [isUploading, setIsUploading] = useState(false); 
 const [isSearching, setIsSearching] = useState(false);
-const [showHistoryModal, setShowHistoryModal] = useState(false);
-const [historyRecords, setHistoryRecords] = useState([]);
+            const [unavailableSlots, setUnavailableSlots] = useState([]); 
+            const [showHistoryModal, setShowHistoryModal] = useState(false);
+
+
 
 // --- 修改後的搜尋舊客邏輯 (改用 RPC 繞過 RLS 限制) ---
 const handleSearchHistory = async () => {
@@ -1323,6 +1383,36 @@ usePromo50: false, // 50天優惠方案狀態
             isWalking: '', // 🌟 新增：是否散步
         });
 
+        useEffect(() => {
+    const fetchBusySlots = async () => {
+        // 判斷目前是美容還是住宿
+        const targetDate = formData.bookingDate;
+
+        if (!targetDate) {
+            setUnavailableSlots([]);
+            return;
+        }
+
+        try {
+            const { data, error } = await supabase
+                .from('busy_slots')
+                .select('time_slot')
+                .eq('date', targetDate);
+
+            if (error) throw error;
+
+            if (data) {
+                const slots = data.map(item => item.time_slot);
+                console.log(`📅 ${targetDate} 已關閉時段:`, slots);
+                setUnavailableSlots(slots);
+            }
+        } catch (err) {
+            console.error("無法讀取忙碌時段:", err);
+        }
+    };
+
+    fetchBusySlots();
+}, [formData.bookingDate]);
 // ★ 新增：集點卡資訊狀態
             const [loyaltyInfo, setLoyaltyInfo] = useState(null);
 
@@ -1591,12 +1681,14 @@ if (data) {
             }, [formData.age, formData.age_months, formData.is_under_one]);
 
 // --- 🌟 修改：全域高風險與美容加購判定 (檢查所有寵物) ---
-            const { isHighRisk, riskType, hasAnyGrooming } = useMemo(() => {
+const { isHighRisk, riskType, hasAnyGrooming } = useMemo(() => {
                 let foundHighRisk = false;
                 let foundGrooming = false;
                 let type = null;
 
-                for (const pet of allPetsCurrentState) {
+                // 🛡️ 確保 pet 存在，避免讀取屬性時崩潰
+                for (const pet of (allPetsCurrentState || [])) {
+                    if (!pet) continue;
                     // 1. 檢查美容加購
                     if (pet.addGrooming) foundGrooming = true;
 
@@ -2050,6 +2142,7 @@ if (view === 'success') {
             return (
                 <div className="min-h-screen pb-32">
                     <ToastUI />
+                    <UpdatePrompt show={showUpdate} onUpdate={() => window.location.reload()} />
                     {/* Nav: Logo 放大 */}
                     <nav className="fixed top-0 w-full z-40 bg-white/90 backdrop-blur-xl border-b border-soosi-green/10 shadow-sm transition-all">
                         <div className="px-6 py-3 flex justify-between items-center max-w-3xl mx-auto">
@@ -2442,13 +2535,17 @@ if (view === 'success') {
                                                 <InputGroup label="起始時間" id="bookingTime">
                                                     <select disabled={isCustomerMode} name="bookingTime" value={formData.bookingTime || ''} onChange={handleInputChange} className="w-full cute-input px-4 py-3 appearance-none">
                                                         <option value=""></option>
-                                                        {timeSlots.map(time => <option key={time} value={time}>{time}</option>)}
+{timeSlots.filter(t => !unavailableSlots.includes(t)).map(time => (
+                                                <option key={time} value={time}>{time}</option>
+                                            ))}
                                                     </select>
                                                 </InputGroup>
                                                 <InputGroup label="預計接回" id="bookingTimeEnd">
                                                     <select disabled={isCustomerMode} name="bookingTimeEnd" value={formData.bookingTimeEnd || ''} onChange={handleInputChange} className="w-full cute-input px-4 py-3 appearance-none">
                                                         <option value=""></option>
-                                                        {timeSlots.map(time => <option key={time} value={time}>{time}</option>)}
+{timeSlots.filter(t => !unavailableSlots.includes(t)).map(time => (
+                                                <option key={time} value={time}>{time}</option>
+                                            ))}
                                                     </select>
                                                 </InputGroup>
                                             </div>
@@ -2525,10 +2622,11 @@ if (view === 'success') {
                                     <InputGroup label="預約日期" required error={errors.bookingDate} id="bookingDate">
                                         <input disabled={isCustomerMode} type="date" name="bookingDate" value={formData.bookingDate || ''} onChange={handleInputChange} className={`w-full cute-input px-4 py-3 ${errors.bookingDate ? 'input-error' : ''}`} />
                                     </InputGroup>
-                                    <InputGroup label="預約時段" required error={errors.bookingTime} id="bookingTime">
+<InputGroup label="預約時段" required error={errors.bookingTime} id="bookingTime">
                                         <select disabled={isCustomerMode} name="bookingTime" value={formData.bookingTime || ''} onChange={handleInputChange} className={`w-full cute-input px-4 py-3 appearance-none ${errors.bookingTime ? 'input-error' : ''}`}>
                                             <option value="">請選擇時段</option>
-                                            {timeSlots.map(time => (
+                                            {/* 🌟 只有「不在不可選清單中」的時段才會出現 */}
+                                            {timeSlots.filter(t => !unavailableSlots.includes(t)).map(time => (
                                                 <option key={time} value={time}>{time}</option>
                                             ))}
                                         </select>
@@ -4027,33 +4125,6 @@ onClick={handleRequestLink}
 };
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
-    </script>
-    <script>
-        // Service Worker 自動更新腳本
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', async () => {
-                try {
-// 1. 註冊 Service Worker (更新至 v=)
-                    const registration = await navigator.serviceWorker.register('./sw.js?v=16');
-                    console.log('Service Worker 註冊成功');
-
-                    // 2. 監聽更新：當偵測到 sw.js 內容有變動時
-                    registration.addEventListener('updatefound', () => {
-                        const newWorker = registration.installing;
-                        newWorker.addEventListener('statechange', () => {
-                            // 當新的 Service Worker 安裝完成且準備好接管時
-                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                console.log('偵測到新版本，正在自動更新頁面...');
-                                // 強制重整頁面，確保使用者看到的是最新版
-                                window.location.reload();
-                            }
-                        });
-                    });
-                } catch (error) {
-                    console.error('Service Worker 註冊失敗:', error);
-                }
-            });
-        }
     </script>
 </body>
 </html>
