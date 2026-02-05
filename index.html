@@ -849,7 +849,7 @@ const App = () => {
                 const registerSW = async () => {
                     try {
                         // 註冊 SW (這裡的版本號 v=20 記得要跟你的 sw.js 同步或更高)
-                        const registration = await navigator.serviceWorker.register('./sw.js?v=22');
+                        const registration = await navigator.serviceWorker.register('./sw.js?v=23');
                         
                         // 監聽更新
                         registration.addEventListener('updatefound', () => {
@@ -945,20 +945,25 @@ const [successData, setSuccessData] = useState(null);
             }
         });
     };
- const [logoClickCount, setLogoClickCount] = useState(0);
-// 添加處理函數
+const [logoClickCount, setLogoClickCount] = useState(0);
+
 const handleLogoClick = () => {
+    // 每次點擊都給一個輕微的震動回饋，讓使用者知道「有按到」
+    if (navigator.vibrate) navigator.vibrate(30);
+
     setLogoClickCount(prev => {
         const newCount = prev + 1;
-        if (newCount === 2) {
-            window.location.href = '/admin.html';  // 跳轉到 admin 頁面
-            return 0;  // 重置計數
+        if (newCount >= 2) {
+            // 成功跳轉前震動久一點 (50ms)，體感會非常明顯
+            if (navigator.vibrate) navigator.vibrate(60);
+            window.location.href = './admin.html'; 
+            return 0;
         }
-        // 設置定時器，如果 500ms 內沒有第二次點擊就重置計數
-        setTimeout(() => setLogoClickCount(0), 500);
+        // 判定時間稍微拉長到 800ms，讓點擊不用那麼趕
+        setTimeout(() => setLogoClickCount(0), 800);
         return newCount;
     });
-};           
+};
 const [view, setView] = useState('entry'); 
             const [isBoarding, setIsBoarding] = useState(false);
             const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1991,10 +1996,10 @@ const calculatedTotalPrice = useMemo(() => {
                         <div className="w-full max-w-lg mx-auto relative z-10 flex flex-col items-center">
 <div className="mb-10 relative group cursor-default">
     <div className="absolute inset-0 bg-white/40 rounded-full blur-2xl transform scale-110"></div>
-    <img 
+<img 
         src="logo.png" 
         alt="宿洗 Soosi Pet" 
-        className="w-56 md:w-64 h-auto relative z-10 drop-shadow-sm transform group-hover:scale-105 transition-transform duration-500 cursor-pointer"
+        className="w-56 md:w-64 h-auto relative z-10 drop-shadow-sm transform group-hover:scale-105 active:scale-90 transition-all duration-200 cursor-pointer touch-manipulation"
         onClick={handleLogoClick}
     />
     <div className="absolute -right-4 -top-2 bg-soosi-accent text-soosi-dark text-xs font-black px-3 py-1 rounded-full rotate-12 shadow-sm">特寵業字第 S1140030號</div>
