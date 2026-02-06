@@ -1807,6 +1807,7 @@ const App = () => {
             const [session, setSession] = useState(null);
             // 🌟 新增：更新提示狀態
             const [showUpdate, setShowUpdate] = useState(false);
+            const [waitingWorker, setWaitingWorker] = useState(null); // 新增：用來儲存等待中的 Service Worker
 
             useEffect(() => {
                 supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
@@ -1818,14 +1819,20 @@ const App = () => {
                 if ('serviceWorker' in navigator) {
                     const registerSW = async () => {
                         try {
-                            // 註冊 Admin SW (這裡版本號 v=16 記得跟 sw-admin.js 配合更新)
-                            const registration = await navigator.serviceWorker.register('./sw-admin.js?v=18');
+
+                            const registration = await navigator.serviceWorker.register('./sw-admin.js?v=20');
                             
+                            // 優化：檢查是否一進頁面就有正在等待中的更新（處理使用者曾忽略更新提示的情況）
+                            if (registration.waiting) {
+                                setWaitingWorker(registration.waiting);
+                                setShowUpdate(true);
+                            }
+
                             registration.addEventListener('updatefound', () => {
                                 const newWorker = registration.installing;
                                 newWorker.addEventListener('statechange', () => {
-                                    // 當新版本安裝完成 (installed) 且目前已經有控制權 (controller) 代表是更新
                                     if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                        setWaitingWorker(newWorker);
                                         setShowUpdate(true);
                                     }
                                 });
@@ -1840,8 +1847,27 @@ const App = () => {
 
             return (
                 <>
-                    {/* 顯示更新提示 */}
-                    <UpdatePrompt show={showUpdate} onUpdate={() => window.location.reload()} />
+{/* 顯示更新提示 */}
+<UpdatePrompt show={showUpdate} onUpdate={() => {
+                        // 1. 監聽控制權變更，確保新版 Service Worker 真正接管頁面後才執行刷新
+                        navigator.serviceWorker.addEventListener('controllerchange', () => {
+                            window.location.reload();
+                        });
+
+                        // 2. 通知等待中的 Worker 跳過等待狀態
+                        if (waitingWorker) {
+                            waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+                        } else {
+                            // 3. 安全退路：若 state 丟失，嘗試從註冊資訊中抓取
+                            navigator.serviceWorker.getRegistration().then(reg => {
+                                if (reg && reg.waiting) {
+                                    reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                                } else {
+                                    window.location.reload();
+                                }
+                            });
+                        }
+                    }} />
                     {session ? <Dashboard user={session.user} /> : <LoginView onLogin={() => {}} />}
                 </>
             );
