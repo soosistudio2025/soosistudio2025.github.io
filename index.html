@@ -849,7 +849,7 @@ const App = () => {
                 const registerSW = async () => {
                     try {
                         // 註冊 SW (這裡的版本號 v=20 記得要跟你的 sw.js 同步或更高)
-                        const registration = await navigator.serviceWorker.register('./sw.js?v=23');
+                        const registration = await navigator.serviceWorker.register('./sw.js?v=24');
                         
                         // 監聽更新
                         registration.addEventListener('updatefound', () => {
@@ -1832,12 +1832,39 @@ const sharedRequired = ['owner_name', 'phone', 'image_auth'];
         if (pet.pet_type === 'dog') petBasic.push('social_play');
         petBasic.forEach(f => { if(!pet[f]) newErrors[`${f}${suffix}`] = `${petLabel}必填`; });
         if (pet.is_under_one ? !pet.age_months : !pet.age) newErrors[`${pet.is_under_one ? 'age_months' : 'age'}${suffix}`] = `${petLabel}請填寫年齡`;
-        if (isBoarding) {
-            ['chip_status', 'personality', 'pica', 'feeding_plan'].forEach(f => { if(!pet[f]) newErrors[`${f}${suffix}`] = `${petLabel}必填`; });
-            if(!pet.diet_type || pet.diet_type.length === 0) newErrors[`diet_type${suffix}`] = `${petLabel}請勾選飲食`;
-        } else {
-            if (!pet.service_items || pet.service_items.length === 0) newErrors[`service_items${suffix}`] = `${petLabel}請選擇服務內容`;
+if (isBoarding) {
+    ['chip_status', 'personality', 'pica', 'feeding_plan'].forEach(f => { 
+        if(!pet[f]) newErrors[`${f}${suffix}`] = `${petLabel}必填`; 
+    });
+
+    if(!pet.diet_type || pet.diet_type.length === 0) {
+        newErrors[`diet_type${suffix}`] = `${petLabel}請勾選飲食`;
+    }
+
+    // ✅ 新增：疫苗證明 (選有必須上傳)
+    if (pet.vaccine === '有' && !pet.vaccine_url) {
+        newErrors[`vaccine_url${suffix}`] = `${petLabel}疫苗證明必須上傳`;
+    }
+
+    // ✅ 新增：驅蟲牌子 (選有必填)
+    if (pet.deworm === '有' && !pet.deworm_brand) {
+        newErrors[`deworm_brand${suffix}`] = `${petLabel}請填寫驅蟲牌子`;
+    }
+
+    // ✅ 新增：洗澡證明 (狗狗且未加購美容)
+    if (pet.pet_type === 'dog' && pet.addGrooming === false) {
+        if (!pet.proof_type) {
+            newErrors[`proof_type${suffix}`] = `${petLabel}請選擇洗澡證明方式`;
+        } else if (pet.proof_type === 'upload' && !pet.proof_url) {
+            newErrors[`proof_url${suffix}`] = `${petLabel}需上傳洗澡證明`;
         }
+    }
+
+} else {
+    if (!pet.service_items || pet.service_items.length === 0) {
+        newErrors[`service_items${suffix}`] = `${petLabel}請選擇服務內容`;
+    }
+}
     });
 
     let targetPetIdx = currentPetIdx;
@@ -2979,7 +3006,7 @@ if (view === 'success') {
                                         </div>
                                     </div>
 
-                                    {/* 疫苗題目 + 上傳功能 */}
+{/* 疫苗題目 + 上傳功能 */}
                                     <div className="space-y-3">
                                         <label className="text-sm font-bold text-soosi-dark ml-1">每年定期施打疫苗 (請提供疫苗手冊) <span className="text-red-500">*</span></label>
                                         <div className="flex gap-4">
@@ -3017,6 +3044,12 @@ if (view === 'success') {
                                                         )}
                                                     </div>
                                                 )}
+                                            </div>
+                                        )}
+
+                                        {errors.vaccine_url && (
+                                            <div className="field-error mt-2">
+                                                <Icon name="alert-circle" size={12}/>{errors.vaccine_url}
                                             </div>
                                         )}
                                     </div>
@@ -3179,7 +3212,7 @@ if (view === 'success') {
 
                                             {/* 選擇提供方式 */}
                                             <div className="space-y-2">
-<label className="text-xs font-bold text-orange-800 ml-1">請選擇證明方式 <span className="text-red-500">*</span>：</label>
+                                                <label className="text-xs font-bold text-orange-800 ml-1">請選擇證明方式 <span className="text-red-500">*</span>：</label>
                                                 <div className="flex gap-3">
                                                     <button type="button" 
                                                         onClick={() => setFormData(p => ({ ...p, proof_type: 'onsite', proof_url: '' }))}
@@ -3192,6 +3225,18 @@ if (view === 'success') {
                                                         <Icon name="upload-cloud" size={16}/> 上傳照片/收據
                                                     </button>
                                                 </div>
+
+                                                {errors.proof_type && (
+                                                    <div className="field-error mt-2">
+                                                        <Icon name="alert-circle" size={12}/>{errors.proof_type}
+                                                    </div>
+                                                )}
+
+                                                {errors.proof_url && (
+                                                    <div className="field-error mt-2">
+                                                        <Icon name="alert-circle" size={12}/>{errors.proof_url}
+                                                    </div>
+                                                )}
                                             </div>
 
                                             {/* 依選擇顯示不同內容 */}
