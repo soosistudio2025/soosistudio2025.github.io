@@ -699,66 +699,72 @@ const formatAge = (pet) => {
                                                         </div>
                                                     </div>
 
-                                                    <div className="flex justify-between border-b border-gray-50 pb-1">
-                                                        <span className="text-gray-400 text-xs">個性/分離焦慮</span>
-<span className="font-bold text-right md:max-w-[200px] md:truncate whitespace-normal break-words" title={pet.personality}>{pet.personality || '-'}</span>
-                                                    </div>
-                                                    <div className="flex justify-between border-b border-gray-50 pb-1">
-                                                        <span className="text-gray-400 text-xs">特殊注意事項</span>
-<span className="font-bold text-right text-soosi-red md:max-w-[200px] md:truncate whitespace-normal break-words" title={getVal(pet, 'specialNotes')}>{getVal(pet, 'specialNotes') || '無'}</span>
-                                                    </div>
-                                                    <div className="flex justify-between border-b border-gray-50 pb-1">
-                                                        <span className="text-gray-400 text-xs">過敏源</span>
-                                                        <span className="font-bold text-right text-soosi-red">{getVal(pet, 'allergies') || '無'}</span>
-                                                    </div>
-                                                    <div className="flex justify-between border-b border-gray-50 pb-1">
-                                                        <span className="text-gray-400 text-xs">美容性情</span>
-                                                        <span className="font-bold text-right">{getVal(pet, 'grooming_temperament')}</span>
-                                                    </div>
-                                                    
-                                                    <div className="border-b border-gray-50 pb-1">
-                                                        <div className="flex justify-between">
-                                                            <span className="text-gray-400 text-xs">過往病史</span>
-                                                            <span className="font-bold text-right text-soosi-red">
-                                                                {pet.medical_status === '有' ? (pet.medical_history||[]).join(',') : '無'}
-                                                            </span>
-                                                        </div>
-                                                        {getVal(pet, 'medical_history_other') && (
-                                                            <div className="text-[10px] text-red-400 text-right mt-0.5">({getVal(pet, 'medical_history_other')})</div>
-                                                        )}
-                                                    </div>
-                                                </div>
+<div className="flex flex-col border-b border-gray-50 py-1.5">
+    <span className="text-gray-400 text-[10px] mb-0.5">個性/分離焦慮</span>
+    <span className="font-bold text-soosi-dark break-words text-sm leading-relaxed">{pet.personality || '-'}</span>
+</div>
+<div className="flex flex-col border-b border-gray-50 py-1.5">
+    <span className="text-gray-400 text-[10px] mb-0.5">特殊注意事項</span>
+    <div className="font-bold text-soosi-red break-words text-sm leading-relaxed bg-red-50 p-2 rounded-lg mt-1">
+        {getVal(pet, 'specialNotes') || '無'}
+    </div>
+</div>
+<div className="flex flex-col border-b border-gray-50 py-1.5">
+    <span className="text-gray-400 text-[10px] mb-0.5">過敏源</span>
+    <div className="font-bold text-soosi-red break-words text-sm leading-relaxed bg-red-50 p-2 rounded-lg mt-1">
+        {getVal(pet, 'allergies') || '無'}
+    </div>
+</div>
+<div className="flex justify-between border-b border-gray-50 pb-1">
+    <span className="text-gray-400 text-xs">美容性情</span>
+    <span className="font-bold text-right break-words">{getVal(pet, 'grooming_temperament')}</span>
+</div>
 
-                                                {/* 右側：飲食與習慣 */}
-                                                <div className="space-y-2">
-                                                    <div className="border-b border-gray-50 pb-1">
-                                                        <div className="flex justify-between">
-                                                            <span className="text-gray-400 text-xs">疫苗/驅蟲</span>
-                                                            <div className="text-right">
-                                                                <span className="font-bold">{getVal(pet, 'vaccine')}</span> / 
-                                                                <span className="font-bold ml-1">{getVal(pet, 'deworm')}</span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex justify-end gap-2 mt-1">
-                                                            {getVal(pet, 'deworm_brand') && <span className="text-[10px] text-gray-400 bg-gray-100 px-1 rounded">{getVal(pet, 'deworm_brand')}</span>}
-                                                            {getVal(pet, 'vaccine_url') && <a href={getVal(pet, 'vaccine_url')} target="_blank" className="text-[10px] text-blue-500 underline">查看手冊</a>}
-                                                        </div>
-                                                    </div>
+<div className="flex flex-col border-b border-gray-50 py-1.5">
+    <span className="text-gray-400 text-[10px] mb-0.5">過往病史</span>
+    <div className={`text-sm font-bold break-words leading-relaxed ${pet.medical_status === '有' ? 'text-soosi-red bg-red-50 p-2 rounded-lg mt-1' : 'text-soosi-dark'}`}>
+        {pet.medical_status === '有' ? (pet.medical_history||[]).join(',') : '無'}
+        {getVal(pet, 'medical_history_other') && (
+            <div className="text-[10px] mt-1 opacity-80 border-t border-red-100 pt-1">說明：{getVal(pet, 'medical_history_other')}</div>
+        )}
+    </div>
+</div>
+</div>
 
-                                                    <div className="border-b border-gray-50 pb-1">
-                                                        <div className="flex justify-between">
-                                                            <span className="text-gray-400 text-xs">飲食習慣</span>
-                                                            <span className="font-bold text-right">{(getVal(pet, 'diet_type')||[]).join(',')}</span>
-                                                        </div>
-                                                        {(getVal(pet, 'diet_type_other') || getVal(pet, 'feeding_plan')) && (
-                                                            <div className="text-[10px] text-gray-500 text-right mt-0.5 leading-tight">
-                                                                {getVal(pet, 'diet_type_other')} {getVal(pet, 'feeding_plan')}
-                                                            </div>
-                                                        )}
-                                                        {getVal(pet, 'pica') === '有' && (
-                                                            <div className="text-[10px] text-red-500 text-right font-bold mt-0.5">⚠️ 異食癖：{getVal(pet, 'pica_note')}</div>
-                                                        )}
-                                                    </div>
+{/* 右側：飲食與習慣 */}
+<div className="space-y-2">
+<div className="border-b border-gray-50 pb-1">
+    <div className="flex justify-between items-center mb-1">
+        <span className="text-gray-400 text-xs">疫苗/驅蟲</span>
+        <div className="text-right">
+            <span className="font-bold text-sm">{getVal(pet, 'vaccine')}</span>
+            <span className="mx-1 text-gray-300">/</span>
+            <span className="font-bold text-sm">{getVal(pet, 'deworm')}</span>
+        </div>
+    </div>
+    <div className="flex justify-end gap-2">
+        {getVal(pet, 'deworm_brand') && <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{getVal(pet, 'deworm_brand')}</span>}
+        {getVal(pet, 'vaccine_url') && <a href={getVal(pet, 'vaccine_url')} target="_blank" className="text-[10px] text-blue-500 underline font-medium">查看手冊</a>}
+    </div>
+</div>
+
+<div className="flex flex-col border-b border-gray-50 py-1.5">
+    <div className="flex justify-between items-center">
+        <span className="text-gray-400 text-[10px]">飲食習慣</span>
+        <span className="font-bold text-sm">{(getVal(pet, 'diet_type')||[]).join(',')}</span>
+    </div>
+    {(getVal(pet, 'diet_type_other') || getVal(pet, 'feeding_plan')) && (
+        <div className="bg-gray-50 p-2 rounded-lg mt-1.5 text-xs text-gray-600 leading-relaxed break-words border border-gray-100">
+            {getVal(pet, 'diet_type_other')} {getVal(pet, 'feeding_plan')}
+        </div>
+    )}
+    {getVal(pet, 'pica') === '有' && (
+        <div className="text-[11px] text-white bg-red-500 px-2 py-1 rounded-md font-bold mt-1.5 flex items-center gap-1">
+            <span>⚠️ 異食癖：</span>
+            <span className="break-all">{getVal(pet, 'pica_note')}</span>
+        </div>
+    )}
+</div>
 
                                                     <div className="border-b border-gray-50 pb-1">
                                                         <div className="flex justify-between mb-1">
@@ -1813,7 +1819,7 @@ const App = () => {
                     const registerSW = async () => {
                         try {
                             // 註冊 Admin SW (這裡版本號 v=16 記得跟 sw-admin.js 配合更新)
-                            const registration = await navigator.serviceWorker.register('./sw-admin.js?v=17');
+                            const registration = await navigator.serviceWorker.register('./sw-admin.js?v=18');
                             
                             registration.addEventListener('updatefound', () => {
                                 const newWorker = registration.installing;
