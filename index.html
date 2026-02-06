@@ -1735,7 +1735,7 @@ const { isHighRisk, riskType, hasAnyGrooming } = useMemo(() => {
             const timeSlots = useMemo(() => {
                 const slots = [];
                 const startHour = 10; // 10:00 開始
-                const endHour = 20;   // 20:00 結束
+                const endHour = 18;   // 18:00 結束
                 for (let i = startHour; i < endHour; i++) {
                     slots.push(`${i}:00`);
                     slots.push(`${i}:30`);
@@ -2358,21 +2358,37 @@ if (view === 'success') {
                                 </InputGroup>
                                 
                                 {/* 修改年齡邏輯：切換時清空另一邊的數值 */}
-                                <div className="space-y-2">
-                                    <label className="text-sm font-bold text-soosi-wood ml-1 flex items-center gap-1">年齡<span className="text-red-500">*</span></label>
-                                    <div className="flex gap-2">
-                                        <PillBtn active={!formData.is_under_one} onClick={()=>setFormData(p=>({...p, is_under_one:false, age_months:''}))}>一歲以上</PillBtn>
-                                        <PillBtn active={formData.is_under_one} onClick={()=>setFormData(p=>({...p, is_under_one:true, age:''}))}>一歲以下</PillBtn>
-                                    </div>
-                                    {formData.is_under_one ? (
-                                        <select value={formData.age_months} onChange={e=>handleChange('age_months', e.target.value)} className="w-full cute-input px-4 py-3">
-                                            <option value="">請選擇月齡</option>
-                                            {[1,2,3,4,5,6,7,8,9,10,11].map(m=><option key={m} value={m}>{m} 個月</option>)}
-                                        </select>
-                                    ) : (
-                                        <input type="number" placeholder="請輸入年齡 (歲)" value={formData.age} onChange={e=>handleChange('age', e.target.value)} className="w-full cute-input px-4 py-3" />
-                                    )}
-                                </div>
+<div className="space-y-2">
+    <label className="text-sm font-bold text-soosi-wood ml-1 flex items-center gap-1">年齡<span className="text-red-500">*</span></label>
+    <div className="flex gap-2">
+        <PillBtn active={!formData.is_under_one} onClick={()=>setFormData(p=>({...p, is_under_one:false, age_months:''}))}>一歲以上</PillBtn>
+        <PillBtn active={formData.is_under_one} onClick={()=>setFormData(p=>({...p, is_under_one:true, age:''}))}>一歲以下</PillBtn>
+    </div>
+    {formData.is_under_one ? (
+        <select value={formData.age_months} onChange={e=>handleChange('age_months', e.target.value)} className="w-full cute-input px-4 py-3">
+            <option value="">請選擇月齡</option>
+            {[1,2,3,4,5,6,7,8,9,10,11].map(m=><option key={m} value={m}>{m} 個月</option>)}
+        </select>
+    ) : (
+        <div className="flex items-center gap-2">
+<input 
+                type="number" 
+                inputMode="numeric" 
+                min="1"
+                placeholder="請輸入數字" 
+                value={formData.age} 
+                onChange={e => {
+                    const val = e.target.value;
+                    if (val === '' || (parseInt(val) >= 1)) {
+                        handleChange('age', val);
+                    }
+                }}
+                className="flex-1 cute-input px-4 py-3 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+            />
+            <span className="font-bold text-soosi-wood shrink-0">歲</span>
+        </div>
+    )}
+</div>
 
                                 <div className="space-y-2">
                                     <label className="text-sm font-bold text-soosi-wood ml-1 flex items-center gap-1">性別<span className="text-red-500">*</span></label>

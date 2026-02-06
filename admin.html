@@ -1625,7 +1625,7 @@ const fetchBusySlots = async (date) => {
                                     <input type="date" className="admin-input w-40" defaultValue={new Date().toLocaleDateString('en-CA')} onChange={e => fetchBusySlots(e.target.value)} id="slot_date_picker" />
                                 </div>
                                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                                    {Array.from({length: 21}, (_, i) => {
+                                    {Array.from({length: 17}, (_, i) => {
                                         const h = Math.floor(i/2) + 10;
                                         const m = i % 2 === 0 ? '00' : '30';
                                         const slot = `${h}:${m}`;
