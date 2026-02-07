@@ -2334,13 +2334,14 @@ if (view === 'success') {
 
 <section className="cute-card w-full box-border p-6 sm:p-8 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100 overflow-x-hidden">
     {/* --- 新增：寵物切換 Tab (僅住宿模式顯示) --- */}
-    {isBoarding && (
-        <div className="relative -mx-2 px-2 overflow-x-auto hide-scrollbar pb-2 overscroll-x-contain touch-pan-y">
+{isBoarding && (
+    <div className="w-full overflow-x-hidden">
+        <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar pb-2 max-w-full">
             {petList.map((pet, idx) => (
                 <div key={idx} onClick={() => handleSwitchPet(idx)}
                     className={`relative group flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 cursor-pointer transition-all select-none ${
                         currentPetIdx === idx
-                            ? 'bg-soosi-wood text-white border-soosi-wood shadow-lg scale-105 origin-center'
+                            ? 'bg-soosi-wood text-white border-soosi-wood shadow-lg'
                             : 'bg-white text-gray-400 border-gray-100 hover:border-soosi-wood/30'
                     }`}>
                     <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${
@@ -2364,7 +2365,9 @@ if (view === 'success') {
                 <Icon name="plus" size={14} /><span>同住毛孩</span>
             </button>
         </div>
-    )}    <div className="flex items-center gap-3 border-b-2 border-dashed border-soosi-wood/10 pb-4">
+    </div>
+)} 
+       <div className="flex items-center gap-3 border-b-2 border-dashed border-soosi-wood/10 pb-4">
                                 <span className="text-2xl">🐾</span>
                                 <h3 className="text-lg font-black text-soosi-dark">寵物詳細資料</h3>
                             </div>
@@ -2584,7 +2587,8 @@ if (view === 'success') {
                                 </div>
                             </div>
                         </section>
-{/* 新增：預約時間區塊 (移到寵物資料下方) */}
+
+                        {/* 新增：預約時間區塊 (移到寵物資料下方) */}
                         <section className="cute-card p-8 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
 <div className="flex items-center justify-between border-b-2 border-dashed border-soosi-wood/10 pb-4">
                                 <div className="flex items-center gap-3">
