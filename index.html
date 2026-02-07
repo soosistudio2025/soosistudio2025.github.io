@@ -194,6 +194,17 @@ input, select, textarea, button {
     max-width: 100% !important;
     box-sizing: border-box;
 }
+/* ✅ 最關鍵：手機預設 body margin 會造成整頁超出 */
+html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100%;
+    overflow-x: hidden;
+}
+/* ✅ 防止 flex 子元素撐爆 */
+.flex > * {
+    min-width: 0;
+}
     </style>
 </head>
 
