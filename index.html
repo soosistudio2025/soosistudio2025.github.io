@@ -172,9 +172,9 @@
     display: block;
 }
 
-/* ✅ 強制全站不溢出螢幕 (修正手機往右跑版) */
+/* ✅ 手機跑版修正：全站強制不超出螢幕 */
 *, *::before, *::after {
-    box-sizing: border-box !important;
+    box-sizing: border-box;
 }
 
 html, body, #root {
@@ -183,27 +183,15 @@ html, body, #root {
     overflow-x: hidden;
 }
 
-main, section, .cute-card, .glass-card {
+.cute-card, .glass-card {
     width: 100%;
-    max-width: 100% !important;
+    max-width: 100%;
     box-sizing: border-box;
-    overflow-x: hidden;
 }
 
-input, select, textarea, button {
-    max-width: 100% !important;
+input, select, textarea {
+    max-width: 100%;
     box-sizing: border-box;
-}
-/* ✅ 最關鍵：手機預設 body margin 會造成整頁超出 */
-html, body {
-    margin: 0 !important;
-    padding: 0 !important;
-    width: 100%;
-    overflow-x: hidden;
-}
-/* ✅ 防止 flex 子元素撐爆 */
-.flex > * {
-    min-width: 0;
 }
     </style>
 </head>
@@ -885,7 +873,7 @@ const App = () => {
                 const registerSW = async () => {
                     try {
                         // 註冊 SW (這裡的版本號 v=20 記得要跟你的 sw.js 同步或更高)
-                        const registration = await navigator.serviceWorker.register('./sw.js?v=26');
+                        const registration = await navigator.serviceWorker.register('./sw.js?v=25');
                         
                         // 監聽更新
                         registration.addEventListener('updatefound', () => {
@@ -2241,7 +2229,7 @@ if (view === 'success') {
                         </div>
                     </nav>
 
-<main className="pt-28 px-4 w-full max-w-full mx-auto box-border overflow-x-hidden space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <main className="pt-28 px-4 max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="text-center space-y-2 pb-2">
                             <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${isBoarding ? 'bg-soosi-wood/10 text-soosi-wood' : 'bg-soosi-green/10 text-soosi-green'}`}>
                                 {isBoarding ? "Hotel Service" : "Grooming Service"}
@@ -2311,7 +2299,7 @@ if (view === 'success') {
         const val = e.target.value.replace(/\D/g, ''); 
         handleChange('phone', val);
     }}
-className={`flex-1 min-w-0 cute-input px-4 py-3 ${errors.phone ? 'input-error' : ''}`}
+    className={`w-full cute-input px-4 py-3 flex-1 ${errors.phone ? 'input-error' : ''}`} 
     placeholder="0912345678" 
 />
     <button 
@@ -2433,7 +2421,7 @@ className={`flex-1 min-w-0 cute-input px-4 py-3 ${errors.phone ? 'input-error' :
             {[1,2,3,4,5,6,7,8,9,10,11].map(m=><option key={m} value={m}>{m} 個月</option>)}
         </select>
     ) : (
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="flex items-center gap-2">
 <input 
                 type="number" 
                 inputMode="numeric" 
@@ -2446,7 +2434,7 @@ className={`flex-1 min-w-0 cute-input px-4 py-3 ${errors.phone ? 'input-error' :
                         handleChange('age', val);
                     }
                 }}
-                className="flex-1 min-w-0 cute-input px-4 py-3 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+                className="flex-1 cute-input px-4 py-3 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
             />
             <span className="font-bold text-soosi-wood shrink-0">歲</span>
         </div>
@@ -3501,7 +3489,7 @@ return allServices.map((item) => (
                                                     onChange={handleInputChange}
                                                     name="estimated_price"
                                                     placeholder="請輸入總額" 
-className="flex-1 min-w-0 cute-input px-3 py-3 text-2xl font-mono font-bold text-soosi-wood"
+                                                    className="w-full cute-input px-3 py-3 text-2xl font-mono font-bold text-soosi-wood"
                                                 />
                                             </div>
                                         </div>
@@ -3520,7 +3508,7 @@ className="flex-1 min-w-0 cute-input px-3 py-3 text-2xl font-mono font-bold text
                                                 // 🌟 修改：使用同步函式，改一隻全改
                                                 onChange={(e) => handleSharedPriceChange('price_per_night', e.target.value)}
                                                 placeholder="輸入每晚金額" 
-className="flex-1 min-w-0 cute-input px-3 py-2 text-lg font-mono font-bold text-soosi-wood"
+                                                className="w-full cute-input px-3 py-2 text-lg font-mono font-bold text-soosi-wood"
                                             />
                                         </div>
                                     </div>
@@ -3539,7 +3527,7 @@ className="flex-1 min-w-0 cute-input px-3 py-2 text-lg font-mono font-bold text-
                                                 // 🌟 修改：使用同步函式
                                                 onChange={(e) => handleSharedPriceChange('holiday_surcharge', e.target.value)}
                                                 placeholder="例如: 100 (無則留空)" 
-className="flex-1 min-w-0 cute-input px-3 py-2 text-lg font-mono font-bold text-soosi-red border-red-200 focus:bg-red-50"
+                                                className="w-full cute-input px-3 py-2 text-lg font-mono font-bold text-soosi-red border-red-200 focus:bg-red-50"
                                             />
                                         </div>
                                     </div>
@@ -3571,7 +3559,7 @@ className="flex-1 min-w-0 cute-input px-3 py-2 text-lg font-mono font-bold text-
                                                                 }
                                                             }}
                                                             placeholder={`輸入 ${pet.pet_name || '美容'} 金額`} 
-className="flex-1 min-w-0 cute-input px-3 py-2 text-lg font-mono font-bold text-soosi-green border-soosi-green/30 focus:bg-soosi-green/5"
+                                                            className="w-full cute-input px-3 py-2 text-lg font-mono font-bold text-soosi-green border-soosi-green/30 focus:bg-soosi-green/5"
                                                         />
                                                     </div>
                                                 </div>
