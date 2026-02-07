@@ -2334,29 +2334,30 @@ if (view === 'success') {
 
 {/* 新增：寵物詳細資料 (移到預約時間上方) */}
 <section className="cute-card w-full box-border p-6 sm:p-8 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
-{/* --- 新增：寵物切換 Tab (僅住宿模式顯示) --- */}
+    {/* --- 新增：寵物切換 Tab (僅住宿模式顯示) --- */}
     {isBoarding && (
-    <div className="flex items-center gap-2 mb-2 overflow-x-auto hide-scrollbar pb-2">
-        {petList.map((pet, idx) => (
-            <div key={idx} onClick={() => handleSwitchPet(idx)}
-                className={`relative group flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 cursor-pointer transition-all select-none ${
-                    currentPetIdx === idx ? 'bg-soosi-wood text-white border-soosi-wood shadow-lg scale-105' : 'bg-white text-gray-400 border-gray-100 hover:border-soosi-wood/30'
-                }`}>
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${currentPetIdx === idx ? 'bg-white text-soosi-wood' : 'bg-gray-100'}`}>{idx + 1}</div>
-                <span className="text-sm font-bold whitespace-nowrap max-w-[80px] truncate">{(currentPetIdx === idx ? formData.pet_name : pet.pet_name) || pet.name}</span>
-                {petList.length > 1 && (
-                    <button onClick={(e) => handleDeletePet(e, idx)} className={`ml-1 p-1 rounded-full hover:bg-red-500 hover:text-white transition-colors ${currentPetIdx === idx ? 'text-white/70' : 'text-gray-300'}`}>
-                        <Icon name="x" size={12} />
-                    </button>
-                )}
+        <div className="overflow-x-hidden">
+            <div className="flex items-center gap-2 mb-2 overflow-x-auto hide-scrollbar pb-2">
+                {petList.map((pet, idx) => (
+                    <div key={idx} onClick={() => handleSwitchPet(idx)}
+                        className={`relative group flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 cursor-pointer transition-all select-none ${
+                            currentPetIdx === idx ? 'bg-soosi-wood text-white border-soosi-wood shadow-lg scale-105' : 'bg-white text-gray-400 border-gray-100 hover:border-soosi-wood/30'
+                        }`}>
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${currentPetIdx === idx ? 'bg-white text-soosi-wood' : 'bg-gray-100'}`}>{idx + 1}</div>
+                        <span className="text-sm font-bold whitespace-nowrap max-w-[80px] truncate">{(currentPetIdx === idx ? formData.pet_name : pet.pet_name) || pet.name}</span>
+                        {petList.length > 1 && (
+                            <button onClick={(e) => handleDeletePet(e, idx)} className={`ml-1 p-1 rounded-full hover:bg-red-500 hover:text-white transition-colors ${currentPetIdx === idx ? 'text-white/70' : 'text-gray-300'}`}>
+                                <Icon name="x" size={12} />
+                            </button>
+                        )}
+                    </div>
+                ))}
+                <button onClick={handleAddPet} className="flex-shrink-0 flex items-center gap-1 px-4 py-2.5 rounded-xl border-2 border-dashed border-soosi-green/30 text-soosi-green font-bold text-xs hover:bg-soosi-green/5 transition-all active:scale-95">
+                    <Icon name="plus" size={14} /><span>同住毛孩</span>
+                </button>
             </div>
-        ))}
-        <button onClick={handleAddPet} className="flex-shrink-0 flex items-center gap-1 px-4 py-2.5 rounded-xl border-2 border-dashed border-soosi-green/30 text-soosi-green font-bold text-xs hover:bg-soosi-green/5 transition-all active:scale-95">
-            <Icon name="plus" size={14} /><span>同住毛孩</span>
-        </button>
-    </div>
+        </div>
     )}
-    {/* ------------------------- */}
     <div className="flex items-center gap-3 border-b-2 border-dashed border-soosi-wood/10 pb-4">
                                 <span className="text-2xl">🐾</span>
                                 <h3 className="text-lg font-black text-soosi-dark">寵物詳細資料</h3>
