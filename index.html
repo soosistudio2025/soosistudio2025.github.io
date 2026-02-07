@@ -63,6 +63,8 @@
             background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E");
             -webkit-font-smoothing: antialiased;
             -webkit-tap-highlight-color: transparent;
+            overflow-x: hidden;
+            width: 100%;
         }
         
       /* 首頁 Glass Card */
@@ -445,8 +447,8 @@ const PriceListPage = ({ onBack }) => {
             );
 
             // --- 狗狗卡片組件 (已套用新顏色規則) ---
-            const PriceCard = ({ item }) => (
-                <div className="bg-white rounded-2xl p-5 shadow-sm border border-soosi-wood/5 animate-in fade-in duration-300">
+const PriceCard = ({ item }) => (
+    <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-soosi-wood/5 animate-in fade-in duration-300">
                     <div className="bg-soosi-green/10 text-soosi-green font-black px-3 py-1 rounded-lg text-xs w-fit mb-3">{item.weight}</div>
                     <div className="space-y-2 mb-4 text-xs">
                         <div className="flex gap-2"><span className="font-bold text-soosi-wood shrink-0">短毛：</span><span className="text-gray-500">{item.typeA}</span></div>
@@ -483,7 +485,7 @@ const PriceListPage = ({ onBack }) => {
                         </div>
                     </div>
 
-                    <div className="p-4 space-y-5 max-w-lg mx-auto">
+<div className="px-5 py-4 space-y-5 max-w-lg mx-auto sm:px-4">
                         {!searchQuery && (
                             <div className="grid grid-cols-4 gap-1.5">
                                 <TabBtn id="small" label="小型" icon="🐾" />
@@ -849,7 +851,7 @@ const App = () => {
                 const registerSW = async () => {
                     try {
                         // 註冊 SW (這裡的版本號 v=20 記得要跟你的 sw.js 同步或更高)
-                        const registration = await navigator.serviceWorker.register('./sw.js?v=24');
+                        const registration = await navigator.serviceWorker.register('./sw.js?v=25');
                         
                         // 監聽更新
                         registration.addEventListener('updatefound', () => {
@@ -871,7 +873,7 @@ const App = () => {
         }, []);
         // 🌟 新增：成功頁面所需的狀態
 const [successData, setSuccessData] = useState(null);
-
+const [historyRecords, setHistoryRecords] = useState([]); // 新增這一行來儲存搜尋結果
 
         // 🌟 自動將原本的 alert 轉換為 Toast (全站統一設定)
         useEffect(() => {
