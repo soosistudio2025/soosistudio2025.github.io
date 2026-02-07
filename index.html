@@ -172,9 +172,9 @@
     display: block;
 }
 
-/* ✅ 手機跑版修正：全站強制不超出螢幕 */
+/* ✅ 強制全站不溢出螢幕 (修正手機往右跑版) */
 *, *::before, *::after {
-    box-sizing: border-box;
+    box-sizing: border-box !important;
 }
 
 html, body, #root {
@@ -183,14 +183,15 @@ html, body, #root {
     overflow-x: hidden;
 }
 
-.cute-card, .glass-card {
+main, section, .cute-card, .glass-card {
     width: 100%;
-    max-width: 100%;
+    max-width: 100% !important;
     box-sizing: border-box;
+    overflow-x: hidden;
 }
 
-input, select, textarea {
-    max-width: 100%;
+input, select, textarea, button {
+    max-width: 100% !important;
     box-sizing: border-box;
 }
     </style>
@@ -2229,7 +2230,7 @@ if (view === 'success') {
                         </div>
                     </nav>
 
-                    <main className="pt-28 px-4 max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+<main className="pt-28 px-4 w-full max-w-full mx-auto box-border overflow-x-hidden space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="text-center space-y-2 pb-2">
                             <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${isBoarding ? 'bg-soosi-wood/10 text-soosi-wood' : 'bg-soosi-green/10 text-soosi-green'}`}>
                                 {isBoarding ? "Hotel Service" : "Grooming Service"}
