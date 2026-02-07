@@ -172,14 +172,24 @@
     display: block;
 }
 
-/* ✅ 手機跑版修正：全站強制不超出螢幕 */
+/* ✅✅ 整頁鎖死左邊版本（強制不右移） */
 *, *::before, *::after {
     box-sizing: border-box;
 }
 
-html, body, #root {
+html, body {
     width: 100%;
-    max-width: 100%;
+    max-width: 100vw;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    position: relative;
+    left: 0;
+}
+
+#root, main, section {
+    width: 100%;
+    max-width: 100vw;
     overflow-x: hidden;
 }
 
@@ -187,6 +197,9 @@ html, body, #root {
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
+    margin-left: auto;
+    margin-right: auto;
+    transform: translateX(0) !important;
 }
 
 input, select, textarea {
