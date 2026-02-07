@@ -206,6 +206,7 @@ input, select, textarea {
     max-width: 100%;
     box-sizing: border-box;
 }
+
     </style>
 </head>
 
@@ -2431,21 +2432,29 @@ if (view === 'success') {
                                     <input type="number" step="0.1" value={formData.weight} onChange={e=>handleChange('weight', e.target.value)} className={`w-full cute-input px-4 py-3 ${errors.weight ? 'input-error' : ''}`} />
                                 </InputGroup>
                                 
-                                {/* 修改年齡邏輯：切換時清空另一邊的數值 */}
+{/* 修改年齡邏輯：切換時清空另一邊的數值 */}
 <div className="space-y-2">
-    <label className="text-sm font-bold text-soosi-wood ml-1 flex items-center gap-1">年齡<span className="text-red-500">*</span></label>
+    <label className="text-sm font-bold text-soosi-wood ml-1 flex items-center gap-1">
+        年齡<span className="text-red-500">*</span>
+    </label>
+
     <div className="flex gap-2">
         <PillBtn active={!formData.is_under_one} onClick={()=>setFormData(p=>({...p, is_under_one:false, age_months:''}))}>一歲以上</PillBtn>
         <PillBtn active={formData.is_under_one} onClick={()=>setFormData(p=>({...p, is_under_one:true, age:''}))}>一歲以下</PillBtn>
     </div>
+
     {formData.is_under_one ? (
-        <select value={formData.age_months} onChange={e=>handleChange('age_months', e.target.value)} className="w-full cute-input px-4 py-3">
+        <select
+            value={formData.age_months}
+            onChange={e=>handleChange('age_months', e.target.value)}
+            className="w-full cute-input px-4 py-3"
+        >
             <option value="">請選擇月齡</option>
             {[1,2,3,4,5,6,7,8,9,10,11].map(m=><option key={m} value={m}>{m} 個月</option>)}
         </select>
     ) : (
-        <div className="flex items-center gap-2">
-<input 
+        <div className="relative w-full">
+            <input 
                 type="number" 
                 inputMode="numeric" 
                 min="1"
@@ -2457,9 +2466,11 @@ if (view === 'success') {
                         handleChange('age', val);
                     }
                 }}
-                className="flex-1 cute-input px-4 py-3 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+                className="w-full pr-10 cute-input px-4 py-3 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
             />
-            <span className="font-bold text-soosi-wood shrink-0">歲</span>
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 font-bold text-soosi-wood">
+                歲
+            </span>
         </div>
     )}
 </div>
