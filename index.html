@@ -166,11 +166,33 @@
             gap: 0.25rem;
         }
         
-        /* LINE 圖片修正 */
-        .line-img-fix {
-            object-fit: contain;
-            display: block;
-        }
+/* LINE 圖片修正 */
+.line-img-fix {
+    object-fit: contain;
+    display: block;
+}
+
+/* ✅ 手機跑版修正：全站強制不超出螢幕 */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html, body, #root {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+.cute-card, .glass-card {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+input, select, textarea {
+    max-width: 100%;
+    box-sizing: border-box;
+}
     </style>
 </head>
 
