@@ -887,7 +887,7 @@ const PillBtn = ({ active, onClick, children, className = "" }) => (
                     const registerSW = async () => {
                         try {
                             // 註冊 SW (這裡的版本號 v=20 記得要跟你的 sw.js 同步或更高)
-                            const registration = await navigator.serviceWorker.register('./sw.js?v=25');
+                            const registration = await navigator.serviceWorker.register('./sw.js?v=26');
                             
                             // 監聽更新
                             registration.addEventListener('updatefound', () => {
@@ -1188,8 +1188,8 @@ const PillBtn = ({ active, onClick, children, className = "" }) => (
                 crateTraining: record.crateTraining || [],
                 litter_type: record.litter_type || '',
 
-    // E. ★ 強制重置：絕對不可導入的「交易內容」與特定圖片 ★
-                addGrooming: '',
+// E. ★ 強制重置：絕對不可導入的「交易內容」與特定圖片 ★
+                addGrooming: false,
                 bookingDate: '',
                 bookingTime: '',
                 estimated_price: '',
@@ -1424,6 +1424,8 @@ const PillBtn = ({ active, onClick, children, className = "" }) => (
     usePromo50: false, // 50天優惠方案狀態
                 image_auth: '', // 🌟 新增：影像授權狀態 (預設空字串)
                 isWalking: '', // 🌟 新增：是否散步
+                    addGrooming: false,   // ✅ 新增：預設選「否」
+
             });
 
             useEffect(() => {
@@ -1874,7 +1876,23 @@ const PillBtn = ({ active, onClick, children, className = "" }) => (
         ['chip_status', 'personality', 'pica', 'feeding_plan'].forEach(f => { 
             if(!pet[f]) newErrors[`${f}${suffix}`] = `${petLabel}必填`; 
         });
+// 1) 加購美容必填 (支援 true/false 字串)
+const add = pet.addGrooming === true || pet.addGrooming === 'true';
+const notAdd = pet.addGrooming === false || pet.addGrooming === 'false';
 
+if (!add && !notAdd) {
+    newErrors[`addGrooming${suffix}`] = `${petLabel}請選擇是否加購美容`;
+}
+
+// 2) 加購美容 → 金額必填
+if (add && !pet.boarding_grooming_price) {
+    newErrors[`boarding_grooming_price${suffix}`] = `${petLabel}請填寫美容加購金額`;
+}
+
+// 3) 加購美容 → 項目必選
+if (add && (!pet.service_items || pet.service_items.length === 0)) {
+    newErrors[`service_items${suffix}`] = `${petLabel}請勾選美容項目`;
+}
         if(!pet.diet_type || pet.diet_type.length === 0) {
             newErrors[`diet_type${suffix}`] = `${petLabel}請勾選飲食`;
         }
@@ -1995,27 +2013,28 @@ const PillBtn = ({ active, onClick, children, className = "" }) => (
                 setPetList([{ id: 0, name: '寵物 1' }]);
                 setCurrentPetIdx(0);
                 setRealtimeSig(null);
-                setFormData({
-                    email: '', owner_name: '', phone: '', owner_id: '', address: '',
-                    emergency_name: '', emergency_phone: '',
-                    pet_name: '', breed: '', weight: '', 
-                    age: '', age_months: '', is_under_one: false,
-                    sex: '', fix: '', 
-                    social_aggression: '', social_play: '', 
-                    grooming_temperament: '',
-                    chip_status: '', chip_id: '', preferred_clinic: '',
-                    medical_status: '', medical_history: [], medical_history_other: '',
-                    service_type: '', service_type_other: '', legal_agree: false,
-                    service_items: [], 
-                    service_items_other: '', 
-                    estimated_price: '',
-                    hasTrialStay: false,
-                    pet_type: 'dog', 
-                    isDaycare: false,
-                    bookingTimeEnd: '',
-                    usePromo50: false,
-                    image_auth: '',
-                });
+setFormData({
+    email: '', owner_name: '', phone: '', owner_id: '', address: '',
+    emergency_name: '', emergency_phone: '',
+    pet_name: '', breed: '', weight: '', 
+    age: '', age_months: '', is_under_one: false,
+    sex: '', fix: '', 
+    social_aggression: '', social_play: '', 
+    grooming_temperament: '',
+    chip_status: '', chip_id: '', preferred_clinic: '',
+    medical_status: '', medical_history: [], medical_history_other: '',
+    service_type: '', service_type_other: '', legal_agree: false,
+    service_items: [], 
+    service_items_other: '', 
+    estimated_price: '',
+    hasTrialStay: false,
+    pet_type: 'dog', 
+    isDaycare: false,
+    bookingTimeEnd: '',
+    usePromo50: false,
+    image_auth: '',
+    addGrooming: false,
+});
                 setLineConfirmed(false);
                 setLoyaltyInfo(null);
             }, 500);
@@ -2570,10 +2589,10 @@ const PillBtn = ({ active, onClick, children, className = "" }) => (
                                             </div>
                                         </div>
 
-                                        <div className="flex gap-3 mb-4">
-                                            <PillBtn active={formData.medical_status === '有'} onClick={() => handleChange('medical_status', '有')} className={formData.medical_status === '有' ? 'bg-soosi-red border-soosi-red' : 'bg-white'}>有</PillBtn>
-                                            <PillBtn active={formData.medical_status === '無'} onClick={() => handleChange('medical_status', '無')} className={formData.medical_status === '無' ? '' : 'bg-white'}>無</PillBtn>
-                                        </div>
+<div className="flex gap-3 mb-4">
+    <PillBtn active={formData.medical_status === '有'} onClick={() => handleChange('medical_status', '有')} className={formData.medical_status === '有' ? 'bg-soosi-red border-soosi-red' : 'bg-white'}>有</PillBtn>
+    <PillBtn active={formData.medical_status === '無'} onClick={() => handleChange('medical_status', '無')} className={formData.medical_status === '無' ? '' : 'bg-white'}>無</PillBtn>
+</div>
                                         
                                         {errors.medical_status && <div className="field-error"><Icon name="alert-circle" size={12}/>{errors.medical_status}</div>}
 
@@ -3250,12 +3269,18 @@ const PillBtn = ({ active, onClick, children, className = "" }) => (
                                             <label className="text-sm font-bold text-soosi-dark ml-1">
                                                 {formData.pet_type === 'dog' ? '是否要在本館安排洗澡？' : '是否需要在住宿期間安排美容？'}<span className="text-red-500">*</span>
                                             </label>
-                                            <div className="flex gap-3 mb-4">
-                                                <PillBtn active={formData.addGrooming === true} onClick={()=>handleChange('addGrooming', true)}>是，我要加購</PillBtn>
-                                                <PillBtn active={formData.addGrooming === false} onClick={()=>handleChange('addGrooming', false)}>
-                                                    {formData.pet_type === 'dog' ? '否 (需提供洗澡證明)' : '否，純住宿'}
-                                                </PillBtn>
-                                            </div>
+<div className="flex gap-3 mb-4">
+    <PillBtn active={formData.addGrooming === true} onClick={()=>handleChange('addGrooming', true)}>是，我要加購</PillBtn>
+    <PillBtn active={formData.addGrooming === false} onClick={()=>handleChange('addGrooming', false)}>
+        {formData.pet_type === 'dog' ? '否 (需提供洗澡證明)' : '否，純住宿'}
+    </PillBtn>
+</div>
+
+{errors.addGrooming && (
+    <div className="field-error mt-1">
+        <Icon name="alert-circle" size={12}/> {errors.addGrooming}
+    </div>
+)}
                                         </div>
 
     {/* 狗狗選「否」時：顯示證明上傳或現場提供選項 */}
@@ -3419,7 +3444,11 @@ const PillBtn = ({ active, onClick, children, className = "" }) => (
                                                         ));
                                                     })()}
                                                 </div>
-
+{errors.service_items && (
+    <div className="field-error mt-2">
+        <Icon name="alert-circle" size={12}/> {errors.service_items}
+    </div>
+)}
                                                 {/* SPA 升級項目區塊 */}
                                                 <div className="bg-white rounded-xl border border-soosi-wood/10 p-4 space-y-3">
                                                     <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
@@ -3553,18 +3582,17 @@ const PillBtn = ({ active, onClick, children, className = "" }) => (
                                             <label className="text-xs font-bold text-gray-400 flex items-center gap-1">
                                                 B. 國定假日/特殊加價 <span className="text-[10px] text-red-400">(不列入折扣)</span>
                                             </label>
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-black text-soosi-red">$</span>
-                                                <input 
-                                                    type="number" 
-                                                    disabled={isCustomerMode} // 鎖定
-                                                    value={formData.holiday_surcharge || ''} 
-                                                    // 🌟 修改：使用同步函式
-                                                    onChange={(e) => handleSharedPriceChange('holiday_surcharge', e.target.value)}
-                                                    placeholder="例如: 100 (無則留空)" 
-                                                    className="w-full cute-input px-3 py-2 text-lg font-mono font-bold text-soosi-red border-red-200 focus:bg-red-50"
-                                                />
-                                            </div>
+<div className="flex items-center gap-2">
+    <span className="font-black text-soosi-red">$</span>
+    <input 
+        type="number" 
+        disabled={isCustomerMode} 
+        value={formData.holiday_surcharge || ''} 
+        onChange={(e) => handleSharedPriceChange('holiday_surcharge', e.target.value)}
+        placeholder="例如: 100 (無則留空)" 
+        className="w-full cute-input px-3 py-2 text-lg font-mono font-bold text-soosi-red border-red-200 focus:bg-red-50"
+    />
+</div>
                                         </div>
 
                                         {/* 3. 美容費輸入 (自動列出所有需要美容的毛孩，不需切換 Tab) */}
@@ -3573,30 +3601,34 @@ const PillBtn = ({ active, onClick, children, className = "" }) => (
                                                 return (
                                                     <div key={idx} className="flex flex-col gap-1 animate-in fade-in slide-in-from-top-2 border-t border-dashed border-gray-200 pt-2 mt-2">
                                                         <label className="text-xs font-bold text-gray-400">C. 美容/SPA 費用 ({pet.pet_name || `寵物${idx+1}`})</label>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="font-black text-soosi-green">$</span>
-                                                            <input 
-                                                                type="number" 
-                                                                disabled={isCustomerMode} 
-                                                                value={pet.boarding_grooming_price || ''} 
-                                                                onChange={(e) => {
-                                                                    const val = e.target.value;
-                                                                    // 如果是當前編輯的寵物，更新 formData
-                                                                    if (idx === currentPetIdx) {
-                                                                        setFormData(p => ({ ...p, boarding_grooming_price: val }));
-                                                                    } else {
-                                                                        // 如果是列表中的其他寵物，更新 petList
-                                                                        setPetList(prev => {
-                                                                            const newList = [...prev];
-                                                                            newList[idx] = { ...newList[idx], boarding_grooming_price: val };
-                                                                            return newList;
-                                                                        });
-                                                                    }
-                                                                }}
-                                                                placeholder={`輸入 ${pet.pet_name || '美容'} 金額`} 
-                                                                className="w-full cute-input px-3 py-2 text-lg font-mono font-bold text-soosi-green border-soosi-green/30 focus:bg-soosi-green/5"
-                                                            />
-                                                        </div>
+<div className="flex items-center gap-2">
+    <span className="font-black text-soosi-green">$</span>
+    <input 
+        type="number" 
+        disabled={isCustomerMode} 
+        value={pet.boarding_grooming_price || ''} 
+        onChange={(e) => {
+            const val = e.target.value;
+            if (idx === currentPetIdx) {
+                setFormData(p => ({ ...p, boarding_grooming_price: val }));
+            } else {
+                setPetList(prev => {
+                    const newList = [...prev];
+                    newList[idx] = { ...newList[idx], boarding_grooming_price: val };
+                    return newList;
+                });
+            }
+        }}
+        placeholder={`輸入 ${pet.pet_name || '美容'} 金額`} 
+        className="w-full cute-input px-3 py-2 text-lg font-mono font-bold text-soosi-green border-soosi-green/30 focus:bg-soosi-green/5"
+    />
+</div>
+
+{errors.boarding_grooming_price && idx === currentPetIdx && (
+    <div className="field-error mt-1">
+        <Icon name="alert-circle" size={12}/> {errors.boarding_grooming_price}
+    </div>
+)}
                                                     </div>
                                                 );
                                             }
