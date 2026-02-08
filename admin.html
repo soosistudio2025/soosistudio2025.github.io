@@ -1651,7 +1651,12 @@ const fetchBusySlots = async (date) => {
                                         const parsed = typeof order.raw_data === 'string' ? JSON.parse(order.raw_data) : order.raw_data;
                                         rawProps = parsed?.raw_data || parsed || {};
                                     } catch (e) {}
-
+// ✅ 新增：安親顯示用變數
+const isDaycare = order.service_type === 'daycare';
+const daycareTime = `${rawProps.bookingTime || ''}${rawProps.bookingTimeEnd ? ' - ' + rawProps.bookingTimeEnd : ''}`;
+const displayDateText = isDaycare 
+    ? `${order.check_in_date} ${daycareTime}` 
+    : `${order.check_in_date} ~ ${order.check_out_date?.slice(5)}`;
                                     // 🌟 步驟 2: 全能標籤偵測函數 (同時檢查 DB 和 Raw Data)
                                     const checkTag = (field, targetValue) => {
                                         // A. 查資料庫 (Booking Pets) - 針對新訂單或已更新的訂單
@@ -1681,8 +1686,12 @@ const fetchBusySlots = async (date) => {
                                                         <span className="flex items-center gap-1">
                                                             <Icon name="calendar" size={12} className="mb-0.5"/>
 {['boarding', 'daycare'].includes(order.service_type) 
-                                                                ? `${order.check_in_date} ~ ${order.check_out_date?.slice(5)}` 
-                                                                : `${order.booking_date || order.check_in_date || order.booking_time?.split('T')[0]} ${order.booking_time || ''}`}
+    ? displayDateText
+    : `${order.booking_date || order.check_in_date || order.booking_time?.split('T')[0]} ${order.booking_time || ''}`}{isDaycare && (
+    <span className="ml-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-soosi-accent/20 text-soosi-wood">
+        安親
+    </span>
+)}
                                                         </span>
                                                         {order.booking_pets?.length > 1 && 
                                                             <span className="bg-soosi-wood/10 text-soosi-wood px-1.5 py-0.5 rounded-full ml-1">
@@ -1820,7 +1829,8 @@ const App = () => {
                     const registerSW = async () => {
                         try {
 
-                            const registration = await navigator.serviceWorker.register('./sw-admin.js?v=20');
+                            const registration = await navigator.serviceWorker.register('./sw-admin.js?v=21'
+                            );
                             
                             // 優化：檢查是否一進頁面就有正在等待中的更新（處理使用者曾忽略更新提示的情況）
                             if (registration.waiting) {
