@@ -1657,6 +1657,11 @@ const daycareTime = `${rawProps.bookingTime || ''}${rawProps.bookingTimeEnd ? ' 
 const displayDateText = isDaycare 
     ? `${order.check_in_date} ${daycareTime}` 
     : `${order.check_in_date} ~ ${order.check_out_date?.slice(5)}`;
+    // ✅ 新增：大美容標籤判斷
+const hasFullGrooming = order.service_type === 'grooming' && (
+    order.booking_pets?.some(p => (p.service_items || []).includes('full')) ||
+    (Array.isArray(rawProps.service_items) && rawProps.service_items.includes('full'))
+);
                                     // 🌟 步驟 2: 全能標籤偵測函數 (同時檢查 DB 和 Raw Data)
                                     const checkTag = (field, targetValue) => {
                                         // A. 查資料庫 (Booking Pets) - 針對新訂單或已更新的訂單
@@ -1687,9 +1692,17 @@ const displayDateText = isDaycare
                                                             <Icon name="calendar" size={12} className="mb-0.5"/>
 {['boarding', 'daycare'].includes(order.service_type) 
     ? displayDateText
-    : `${order.booking_date || order.check_in_date || order.booking_time?.split('T')[0]} ${order.booking_time || ''}`}{isDaycare && (
+    : `${order.booking_date || order.check_in_date || order.booking_time?.split('T')[0]} ${order.booking_time || ''}`}
+
+{isDaycare && (
     <span className="ml-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-soosi-accent/20 text-soosi-wood">
         安親
+    </span>
+)}
+
+{hasFullGrooming && (
+    <span className="ml-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-soosi-green/20 text-soosi-green">
+        大美容
     </span>
 )}
                                                         </span>
