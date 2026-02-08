@@ -424,7 +424,9 @@ const formatAge = (pet) => {
 
                         {/* --- 2. 美容與 SPA 項目 --- */}
                         {editData.booking_pets?.map((pet, idx) => {
-                            const hasGrooming = isBoarding ? pet.add_grooming : true;
+const hasGrooming = isBoarding 
+    ? (pet.add_grooming === true || pet.add_grooming === 'true' || pet.addGrooming === true || pet.addGrooming === 'true')
+    : true;
                             const gPrice = parseInt(pet.grooming_price || 0);
                             
                             if (hasGrooming) {
@@ -562,7 +564,7 @@ const formatAge = (pet) => {
                                         )}
 {isBoarding && (
                                             <button onClick={() => { setReportType('boarding'); setShowReport(true); }} 
-                                                className={`py-3 bg-soosi-wood/10 text-soosi-wood border-2 border-dashed border-soosi-wood/20 rounded-xl font-black text-xs flex items-center justify-center gap-1 hover:bg-soosi-wood hover:text-white transition-all group ${!getRaw('addGrooming') ? 'col-span-2' : ''}`}>
+className={`py-3 bg-soosi-wood/10 text-soosi-wood border-2 border-dashed border-soosi-wood/20 rounded-xl font-black text-xs flex items-center justify-center gap-1 hover:bg-soosi-wood hover:text-white transition-all group ${!hasAddGrooming ? 'col-span-2' : ''}`}>
                                                 <Icon name="home" size={16}/> 產生住宿報告
                                             </button>
                                         )}
