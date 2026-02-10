@@ -887,7 +887,7 @@ const PillBtn = ({ active, onClick, children, className = "" }) => (
                     const registerSW = async () => {
                         try {
                             // 註冊 SW (這裡的版本號 v=20 記得要跟你的 sw.js 同步或更高)
-                            const registration = await navigator.serviceWorker.register('./sw.js?v=26');
+                            const registration = await navigator.serviceWorker.register('./sw.js?v=27');
                             
                             // 監聽更新
                             registration.addEventListener('updatefound', () => {
@@ -1994,19 +1994,19 @@ if (add && (!pet.service_items || pet.service_items.length === 0)) {
             alert("🎉 契約提交成功！");
             await new Promise(resolve => setTimeout(resolve, 1500));
 
-            const hasEmail = formData.email && formData.email.trim() !== '';
-            setView('success'); 
-            setSuccessData({ 
-                hasEmail, 
-                email: formData.email,
-                contractHtml: contractHtmlFromServer, // 將後端傳回的 HTML 存入狀態
-                contractData: {
-                    ...formData,
-                    estimated_price: calculatedTotalPrice,
-                    signature_url,
-                    petList: petListToValidate
-                }
-            });
+const hasEmail = formData.email && formData.email.trim() !== '';
+setSuccessData({ 
+    hasEmail, 
+    email: formData.email,
+    contractHtml: contractHtmlFromServer, // 將後端傳回的 HTML 存入狀態
+    contractData: {
+        ...formData,
+        estimated_price: calculatedTotalPrice,
+        signature_url,
+        petList: petListToValidate
+    }
+});
+setView('success');
             
             // 延後 0.5 秒再清空資料，確保畫面切換回首頁後才在背景重置，視覺上最順暢
             setTimeout(() => {
@@ -2148,79 +2148,88 @@ setFormData({
                         </div>
                     );
                 }
-                // --- 新增：成功頁面 View ---
-    if (view === 'success') {
+// --- 新增：成功頁面 View ---
+if (view === 'success') {
+    // 🌟 新增：防止 successData 還沒準備好就渲染導致白畫面
+    if (!successData) {
         return (
-            <div className="min-h-screen bg-[#F9F7F2] flex flex-col items-center justify-center p-6 relative overflow-hidden animate-in fade-in duration-500">
-                {/* 背景裝飾 */}
-                <div className="bg-blob w-96 h-96 bg-soosi-green/10 top-[-10%] left-[-10%]"></div>
-                <div className="bg-blob w-80 h-80 bg-soosi-wood/10 bottom-[-10%] right-[-10%]"></div>
-
-                <div className="w-full max-w-md mx-auto relative z-10 bg-white rounded-[2.5rem] shadow-2xl p-8 text-center space-y-6 border-2 border-soosi-green/10">
-                    {/* 成功圖示 */}
-                    <div className="w-24 h-24 bg-soosi-green/10 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
-                        <Icon name="check-circle" size={48} className="text-soosi-green" />
-                    </div>
-
-                    <h2 className="text-2xl font-black text-soosi-dark tracking-tight">
-                        預約成功！
-                    </h2>
-                    <p className="text-sm text-gray-500 leading-relaxed">
-                        感謝您的填寫，我們已收到您的預約資料。
-                    </p>
-
-                    {/* 根據是否有 Email 顯示不同訊息 */}
-                    <div className={`p-4 rounded-xl border-2 ${successData.hasEmail ? 'bg-soosi-green/5 border-soosi-green/20' : 'bg-yellow-50 border-yellow-200'}`}>
-                        <div className="flex items-start gap-3">
-                            <Icon name={successData.hasEmail ? "mail" : "alert-circle"} size={20} className={successData.hasEmail ? "text-soosi-green mt-0.5" : "text-yellow-600 mt-0.5"} />
-                            <div className="text-left">
-                                <h3 className="font-bold text-soosi-dark text-sm mb-1">
-                                    {successData.hasEmail ? "契約副本已發送" : "提醒：未填寫電子郵件"}
-                                </h3>
-                                <p className="text-xs text-gray-600">
-                                    {successData.hasEmail 
-                                        ? `詳細資訊已發送至 ${successData.email}，請查收信箱。` 
-                                        : "因未填寫 Email，我們無法主動發送契約副本。建議您點擊下方按鈕保存完整契約。"}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* 按鈕區域 */}
-                    <div className="space-y-3 pt-4">
-    <button 
-                            onClick={() => {
-                                const contractWindow = window.open('', '_blank');
-                                if (contractWindow) {
-                                    // 🌟 關鍵修改：直接調用從後端拿到的 contractHtml
-                                    if (successData.contractHtml) {
-                                        contractWindow.document.write(successData.contractHtml);
-                                    } else {
-                                        contractWindow.document.write('<h3>正在生成契約副本，請稍後再試或檢查信箱。</h3>');
-                                    }
-                                    contractWindow.document.close();
-                                } else {
-                                    alert('無法開啟新視窗，請檢查瀏覽器的彈出視窗設定');
-                                }
-                            }}
-                            className="w-full py-4 bg-soosi-green text-white rounded-2xl font-bold shadow-lg shadow-soosi-green/20 active:scale-95 transition-all flex items-center justify-center gap-2"
-                        >
-                            <Icon name="file-text" size={20} />
-                            查看完整契約副本
-                        </button>
-                        
-                        <button 
-                            onClick={goHome}
-                            className="w-full py-4 bg-white border-2 border-soosi-wood text-soosi-wood rounded-2xl font-bold active:scale-95 transition-all flex items-center justify-center gap-2"
-                        >
-                            <Icon name="home" size={20} />
-                            返回首頁
-                        </button>
-                    </div>
-                </div>
+            <div className="min-h-screen bg-[#F9F7F2] flex items-center justify-center">
+                <div className="text-soosi-wood font-bold text-sm">正在整理資料，請稍候...</div>
             </div>
         );
     }
+
+    return (
+        <div className="min-h-screen bg-[#F9F7F2] flex flex-col items-center justify-center p-6 relative overflow-hidden animate-in fade-in duration-500">
+            {/* 背景裝飾 */}
+            <div className="bg-blob w-96 h-96 bg-soosi-green/10 top-[-10%] left-[-10%]"></div>
+            <div className="bg-blob w-80 h-80 bg-soosi-wood/10 bottom-[-10%] right-[-10%]"></div>
+
+            <div className="w-full max-w-md mx-auto relative z-10 bg-white rounded-[2.5rem] shadow-2xl p-8 text-center space-y-6 border-2 border-soosi-green/10">
+                {/* 成功圖示 */}
+                <div className="w-24 h-24 bg-soosi-green/10 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
+                    <Icon name="check-circle" size={48} className="text-soosi-green" />
+                </div>
+
+                <h2 className="text-2xl font-black text-soosi-dark tracking-tight">
+                    預約成功！
+                </h2>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                    感謝您的填寫，我們已收到您的預約資料。
+                </p>
+
+                {/* 根據是否有 Email 顯示不同訊息 */}
+                <div className={`p-4 rounded-xl border-2 ${successData.hasEmail ? 'bg-soosi-green/5 border-soosi-green/20' : 'bg-yellow-50 border-yellow-200'}`}>
+                    <div className="flex items-start gap-3">
+                        <Icon name={successData.hasEmail ? "mail" : "alert-circle"} size={20} className={successData.hasEmail ? "text-soosi-green mt-0.5" : "text-yellow-600 mt-0.5"} />
+                        <div className="text-left">
+                            <h3 className="font-bold text-soosi-dark text-sm mb-1">
+                                {successData.hasEmail ? "契約副本已發送" : "提醒：未填寫電子郵件"}
+                            </h3>
+                            <p className="text-xs text-gray-600">
+                                {successData.hasEmail 
+                                    ? `詳細資訊已發送至 ${successData.email}，請查收信箱。` 
+                                    : "因未填寫 Email，我們無法主動發送契約副本。建議您點擊下方按鈕保存完整契約。"}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 按鈕區域 */}
+                <div className="space-y-3 pt-4">
+<button 
+                        onClick={() => {
+                            const contractWindow = window.open('', '_blank');
+                            if (contractWindow) {
+                                // 🌟 關鍵修改：直接調用從後端拿到的 contractHtml
+                                if (successData.contractHtml) {
+                                    contractWindow.document.write(successData.contractHtml);
+                                } else {
+                                    contractWindow.document.write('<h3>正在生成契約副本，請稍後再試或檢查信箱。</h3>');
+                                }
+                                contractWindow.document.close();
+                            } else {
+                                alert('無法開啟新視窗，請檢查瀏覽器的彈出視窗設定');
+                            }
+                        }}
+                        className="w-full py-4 bg-soosi-green text-white rounded-2xl font-bold shadow-lg shadow-soosi-green/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                    >
+                        <Icon name="file-text" size={20} />
+                        查看完整契約副本
+                    </button>
+                    
+                    <button 
+                        onClick={goHome}
+                        className="w-full py-4 bg-white border-2 border-soosi-wood text-soosi-wood rounded-2xl font-bold active:scale-95 transition-all flex items-center justify-center gap-2"
+                    >
+                        <Icon name="home" size={20} />
+                        返回首頁
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
 
     // --- 新增：價目表 View (放在 entry 之後，表單之前) ---
                 if (view === 'prices') {
