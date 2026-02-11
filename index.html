@@ -526,6 +526,11 @@ window.addEventListener('unhandledrejection', (e) => {
   );
 });
 
+/* ✅ 測試用：你可以在 F12 Console 輸入 testWhiteScreenReport() */
+window.testWhiteScreenReport = () => {
+  showFatalError("【測試白畫面】手動觸發", "這是後台手動測試錯誤", "manual");
+};
+
     // --- 工具：圖片壓縮函式 (壓縮至 1.5MB 以下且轉為 JPEG) ---
                 const compressImageFile = async (imageFile) => {
                     // 設定壓縮選項
@@ -1215,7 +1220,7 @@ const PillBtn = ({ active, onClick, children, className = "" }) => (
                     const registerSW = async () => {
                         try {
                             // 註冊 SW (這裡的版本號 v=20 記得要跟你的 sw.js 同步或更高)
-                            const registration = await navigator.serviceWorker.register('./sw.js?v=27');
+                            const registration = await navigator.serviceWorker.register('./sw.js?v=28');
                             
                             // 監聽更新
                             registration.addEventListener('updatefound', () => {
