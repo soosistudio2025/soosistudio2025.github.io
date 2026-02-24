@@ -587,27 +587,25 @@ class ErrorBoundary extends React.Component {
         super(props);
         this.state = { hasError: false };
     }
+
     static getDerivedStateFromError(error) {
         return { hasError: true };
     }
+
     componentDidCatch(error, info) {
-        console.error("❌ 發生致命錯誤:", error, info);
+        console.error("❌ React Error:", error, info);
+
+        // ✅ 這行會觸發你原本的自動寄錯誤功能
+        showFatalError(
+            error?.message || "React Error",
+            error?.stack || "",
+            "react"
+        );
     }
+
     render() {
-        if (this.state.hasError) {
-            return (
-                <div className="min-h-screen flex flex-col items-center justify-center bg-[#F9F7F2] text-center p-6">
-                    <div className="text-soosi-wood font-black text-xl mb-4">系統發生錯誤</div>
-                    <div className="text-gray-500 text-sm mb-6">請點擊下方按鈕重新整理</div>
-                    <button 
-                        onClick={() => window.location.reload()} 
-                        className="px-6 py-3 bg-soosi-green text-white rounded-xl font-bold shadow-lg"
-                    >
-                        重新整理
-                    </button>
-                </div>
-            );
-        }
+        // ✅ 讓 showFatalError 直接接管畫面（不要再顯示手動複製版）
+        if (this.state.hasError) return null;
         return this.props.children;
     }
 }
@@ -1220,7 +1218,7 @@ const PillBtn = ({ active, onClick, children, className = "" }) => (
                     const registerSW = async () => {
                         try {
                             // 註冊 SW (這裡的版本號 v=20 記得要跟你的 sw.js 同步或更高)
-                            const registration = await navigator.serviceWorker.register('./sw.js?v=28');
+                            const registration = await navigator.serviceWorker.register('./sw.js?v=29');
                             
                             // 監聽更新
                             registration.addEventListener('updatefound', () => {
@@ -1910,45 +1908,48 @@ useEffect(() => {
     };
 
     // 切換 Tab
-    const handleSwitchPet = (newIdx) => {
-        if (newIdx === currentPetIdx) return;
-        
-        // 1. 先把「當前正在填寫」的資料存回列表
-        const currentPetData = {};
-        PET_SPECIFIC_FIELDS.forEach(field => {
-            currentPetData[field] = formData[field];
-        });
+const handleSwitchPet = (newIdx) => {
+    // ✅ 防呆避免 NaN 或超出範圍
+    if (!Number.isInteger(newIdx)) return;
+    if (newIdx < 0 || newIdx >= petList.length) return;
+    if (newIdx === currentPetIdx) return;
+    
+    // 1. 先把「當前正在填寫」的資料存回列表
+    const currentPetData = {};
+    PET_SPECIFIC_FIELDS.forEach(field => {
+        currentPetData[field] = formData[field];
+    });
 
-        setPetList(prev => {
-            const newList = [...prev];
-            newList[currentPetIdx] = { 
-                ...newList[currentPetIdx], 
-                ...currentPetData,
-                name: formData.pet_name || `寵物 ${currentPetIdx + 1}`
-            };
-            
-            // 2. 存完後立即從 newList 讀取目標寵物的資料
-            const targetPet = newList[newIdx];
-            setFormData(prev => {
-                const nextState = { ...prev };
-                PET_SPECIFIC_FIELDS.forEach(field => {
-                    if (['service_items', 'medical_history', 'diet_type', 'crateTraining'].includes(field)) {
-                        nextState[field] = targetPet[field] || [];
-                    } else if (field === 'pet_type') {
-                        nextState[field] = targetPet[field] || 'dog';
-                    } else if (['is_under_one', 'hasTrialStay', 'addGrooming', 'usePromo50'].includes(field)) {
-                        nextState[field] = targetPet[field] || false;
-                    } else {
-                        nextState[field] = targetPet[field] || '';
-                    }
-                });
-                return nextState;
-            });
-            return newList;
-        });
+    setPetList(prev => {
+        const newList = [...prev];
+        newList[currentPetIdx] = { 
+            ...newList[currentPetIdx], 
+            ...currentPetData,
+            name: formData.pet_name || `寵物 ${currentPetIdx + 1}`
+        };
         
-        setCurrentPetIdx(newIdx);
-    };
+        // 2. 存完後立即從 newList 讀取目標寵物的資料
+        const targetPet = newList[newIdx];
+        setFormData(prev => {
+            const nextState = { ...prev };
+            PET_SPECIFIC_FIELDS.forEach(field => {
+                if (['service_items', 'medical_history', 'diet_type', 'crateTraining'].includes(field)) {
+                    nextState[field] = targetPet[field] || [];
+                } else if (field === 'pet_type') {
+                    nextState[field] = targetPet[field] || 'dog';
+                } else if (['is_under_one', 'hasTrialStay', 'addGrooming', 'usePromo50'].includes(field)) {
+                    nextState[field] = targetPet[field] || false;
+                } else {
+                    nextState[field] = targetPet[field] || '';
+                }
+            });
+            return nextState;
+        });
+        return newList;
+    });
+    
+    setCurrentPetIdx(newIdx);
+};
 
     // 新增寵物
     const handleAddPet = () => {
@@ -2254,7 +2255,7 @@ useEffect(() => {
             sharedRequired.push('bookingDate', 'bookingTime');
         }
         sharedRequired.forEach(f => { if(!dataToValidate[f]) newErrors[f] = '此欄位為必填'; });
-        if (!calculatedTotalPrice || calculatedTotalPrice <= 0) newErrors.estimated_price = '金額不可為 0';
+        if (!calculatedTotalPrice || calculatedTotalPrice <= 0) newErrors.estimated_price = '尚未填寫金額，請先傳訊息詢問粗略報價';
 
         petListToValidate.forEach((pet, index) => {
             const suffix = `_${index}`;
@@ -2314,15 +2315,31 @@ if (add && (!pet.service_items || pet.service_items.length === 0)) {
     }
         });
 
-        let targetPetIdx = currentPetIdx;
-        const firstErrorKey = Object.keys(newErrors)[0];
-        if (firstErrorKey && firstErrorKey.includes('_')) targetPetIdx = parseInt(firstErrorKey.split('_').pop());
-        Object.keys(newErrors).forEach(key => { if (key.endsWith(`_${targetPetIdx}`)) newErrors[key.replace(`_${targetPetIdx}`, '')] = newErrors[key]; });
+let targetPetIdx = currentPetIdx;
+const firstErrorKey = Object.keys(newErrors)[0];
+
+// ✅ 只處理「結尾是 _數字」的欄位
+const match = firstErrorKey?.match(/_(\d+)$/);
+if (match) {
+    targetPetIdx = parseInt(match[1], 10);
+}
+
+Object.keys(newErrors).forEach(key => {
+    if (key.endsWith(`_${targetPetIdx}`)) {
+        newErrors[key.replace(`_${targetPetIdx}`, '')] = newErrors[key];
+    }
+});
 
         setErrors(newErrors);
         if (Object.keys(newErrors).length > 0) {
             if (targetPetIdx !== currentPetIdx) handleSwitchPet(targetPetIdx);
-            alert(firstErrorKey === 'image_auth' ? '⚠️「影像使用授權」尚未勾選喔！' : `⚠️ 還有欄位未填齊，已標記為紅色。`);
+            alert(
+    firstErrorKey === 'image_auth'
+        ? '⚠️「影像使用授權」尚未勾選喔！'
+        : firstErrorKey === 'estimated_price'
+        ? '⚠️ 尚未填寫金額，請先傳訊息詢問粗略報價'
+        : `⚠️ 還有欄位未填齊，已標記為紅色。`
+);
             setTimeout(() => { document.getElementById(firstErrorKey.split('_')[0])?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 300);
             return; 
         }
@@ -2803,7 +2820,7 @@ if (view === 'success') {
                             currentPetIdx === idx ? 'bg-white text-soosi-wood' : 'bg-gray-100'
                         }`}>{idx + 1}</div>
                         <span className="text-sm font-bold whitespace-nowrap max-w-[80px] truncate">
-                            {(currentPetIdx === idx ? formData.pet_name : pet.pet_name) || pet.name}
+                            {(currentPetIdx === idx ? formData.pet_name : pet?.pet_name) || pet?.name}
                         </span>
                         {petList.length > 1 && (
                             <button onClick={(e) => handleDeletePet(e, idx)}
