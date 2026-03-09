@@ -1439,7 +1439,7 @@ const [activeTab, setActiveTab] = useState('grooming');
             const [loading, setLoading] = useState(true);
             const [selectedOrder, setSelectedOrder] = useState(null);
             const [searchTerm, setSearchTerm] = useState('');
-
+            const [showIncompleteOnly, setShowIncompleteOnly] = useState(true);
             const fetchOrders = async () => {
                 setLoading(true);
                 let query = supabase
@@ -1458,13 +1458,20 @@ const [activeTab, setActiveTab] = useState('grooming');
                 setLoading(false);
             };
 
-            const updateStatus = async (id, newStatus) => {
-                const { error } = await supabase.from('bookings').update({ status: newStatus }).eq('id', id);
-                if (!error) {
-                    setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o));
-                    if (selectedOrder?.id === id) setSelectedOrder(prev => ({ ...prev, status: newStatus }));
-                }
-            };
+const updateStatus = async (id, newStatus) => {
+    const { error } = await supabase.from('bookings').update({ status: newStatus }).eq('id', id);
+    if (!error) {
+        setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o));
+
+        if (selectedOrder?.id === id) {
+            if (newStatus === 'completed' || newStatus === 'cancelled') {
+                setSelectedOrder(null);
+            } else {
+                setSelectedOrder(prev => ({ ...prev, status: newStatus }));
+            }
+        }
+    }
+};
 
             const updateNote = async (id, note) => {
                 const { error } = await supabase.from('bookings').update({ admin_note: note }).eq('id', id);
@@ -1535,14 +1542,101 @@ const fetchBusySlots = async (date) => {
                 if (activeTab === 'slots') fetchBusySlots(new Date().toLocaleDateString('en-CA'));
             }, [activeTab]);
 
-            const filteredOrders = useMemo(() => {
-                return orders.filter(o => 
-                    o.owner_name?.includes(searchTerm) || 
-                    o.phone?.includes(searchTerm) || 
-                    o.booking_pets?.some(p => p.pet_name?.includes(searchTerm))
-                );
-            }, [orders, searchTerm]);
+const filteredOrders = useMemo(() => {
+    return orders.filter(o => {
+        const matchSearch =
+            !searchTerm ||
+            o.owner_name?.includes(searchTerm) ||
+            o.phone?.includes(searchTerm) ||
+            o.booking_pets?.some(p => p.pet_name?.includes(searchTerm));
 
+        const matchStatus = showIncompleteOnly
+            ? !['completed', 'cancelled'].includes(o.status)
+            : true;
+
+        return matchSearch && matchStatus;
+    });
+}, [orders, searchTerm, showIncompleteOnly]);
+
+const sortedFilteredOrders = useMemo(() => {
+    const getStatusPriority = (status) => {
+        if (status === 'pending') return 0;
+        if (status === 'confirmed') return 1;
+        if (status === 'completed') return 2;
+        if (status === 'cancelled') return 3;
+        return 99;
+    };
+
+    const getRawProps = (order) => {
+        try {
+            const parsed = typeof order.raw_data === 'string'
+                ? JSON.parse(order.raw_data)
+                : order.raw_data;
+            return parsed?.raw_data || parsed || {};
+        } catch (e) {
+            return {};
+        }
+    };
+
+    const normalizeTime = (timeStr) => {
+        if (!timeStr) return '00:00';
+
+        if (typeof timeStr !== 'string') return '00:00';
+
+        if (timeStr.includes('T')) {
+            const parts = timeStr.split('T');
+            if (parts[1]) return parts[1].slice(0, 5);
+        }
+
+        if (timeStr.length >= 5 && timeStr.includes(':')) {
+            return timeStr.slice(0, 5);
+        }
+
+        return '00:00';
+    };
+
+    const getOrderDateTime = (order) => {
+        if (order.service_type === 'grooming') {
+            const date = order.booking_date || order.check_in_date || order.created_at?.slice(0, 10);
+            const time = normalizeTime(order.booking_time);
+            return new Date(`${date}T${time}`);
+        }
+
+        if (order.service_type === 'boarding' || order.service_type === 'daycare') {
+            const rawProps = getRawProps(order);
+            const date = order.check_in_date || order.booking_date || order.created_at?.slice(0, 10);
+            const time = order.service_type === 'daycare'
+                ? normalizeTime(rawProps.bookingTime)
+                : '00:00';
+            return new Date(`${date}T${time}`);
+        }
+
+        return new Date(order.created_at);
+    };
+
+    return [...filteredOrders].sort((a, b) => {
+        const statusA = getStatusPriority(a.status);
+        const statusB = getStatusPriority(b.status);
+
+        if (statusA !== statusB) return statusA - statusB;
+
+        const dateA = getOrderDateTime(a);
+        const dateB = getOrderDateTime(b);
+
+        const aIncomplete = ['pending', 'confirmed'].includes(a.status);
+        const bIncomplete = ['pending', 'confirmed'].includes(b.status);
+
+        if (aIncomplete && bIncomplete) {
+            return dateA - dateB;
+        }
+
+        if (!aIncomplete && !bIncomplete) {
+            return dateB - dateA;
+        }
+
+        return dateA - dateB;
+    });
+}, [filteredOrders]);
             // CRM 顧客分組邏輯
             const customers = useMemo(() => {
                 const groups = {};
@@ -1593,36 +1687,61 @@ const fetchBusySlots = async (date) => {
                     </nav>
 
                     <main className="max-w-4xl mx-auto p-6 space-y-6">
-                        <div className="relative group">
-                            <Icon name="search" size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-soosi-green transition-colors" />
-                            <input 
-                                type="text" 
-                                placeholder="搜尋主人姓名、電話、毛孩名字..." 
-                                value={searchTerm}
-                                onChange={e => setSearchTerm(e.target.value)}
-                                className="w-full pl-12 pr-4 py-4 rounded-2xl bg-white shadow-sm border-2 border-transparent focus:border-soosi-green outline-none font-bold text-sm transition-all"
-                            />
-                        </div>
+<div className="relative group">
+    <Icon name="search" size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-soosi-green transition-colors" />
+    <input 
+        type="text" 
+        placeholder="搜尋主人姓名、電話、毛孩名字..." 
+        value={searchTerm}
+        onChange={e => setSearchTerm(e.target.value)}
+        className="w-full pl-12 pr-4 py-4 rounded-2xl bg-white shadow-sm border-2 border-transparent focus:border-soosi-green outline-none font-bold text-sm transition-all"
+    />
+</div>
+<div className="space-y-3">
+    <div className="grid grid-cols-6 gap-2 bg-white p-2 rounded-[2rem] shadow-sm border border-gray-100">
+        {/* 前二個佔 3 格 (平分第一排) */}
+        <button onClick={() => setActiveTab('grooming')} className={`col-span-3 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all ${activeTab === 'grooming' ? 'bg-soosi-green text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
+            <Icon name="scissors" size={16}/> 洗澡美容
+        </button>
+        <button onClick={() => setActiveTab('boarding')} className={`col-span-3 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all ${activeTab === 'boarding' ? 'bg-soosi-wood text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
+            <Icon name="home" size={16}/> 住宿安親
+        </button>
+        
+        {/* 後三個各佔 2 格 (平分第二排) */}
+        <button onClick={() => setActiveTab('crm')} className={`col-span-2 py-3 rounded-2xl font-black text-[10px] flex flex-col items-center gap-1 transition-all ${activeTab === 'crm' ? 'bg-soosi-dark text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
+            <Icon name="users" size={14}/> 顧客管理
+        </button>
+        <button onClick={() => setActiveTab('calendar')} className={`col-span-2 py-3 rounded-2xl font-black text-[10px] flex flex-col items-center gap-1 transition-all ${activeTab === 'calendar' ? 'bg-soosi-accent text-soosi-dark shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
+            <Icon name="calendar" size={14}/> 日曆檢視
+        </button>
+        <button onClick={() => setActiveTab('slots')} className={`col-span-2 py-3 rounded-2xl font-black text-[10px] flex flex-col items-center gap-1 transition-all ${activeTab === 'slots' ? 'bg-red-500 text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
+            <Icon name="clock" size={14}/> 時段設定
+        </button>
+    </div>
 
-<div className="grid grid-cols-6 gap-2 bg-white p-2 rounded-[2rem] shadow-sm border border-gray-100">
-    {/* 前二個佔 3 格 (平分第一排) */}
-    <button onClick={() => setActiveTab('grooming')} className={`col-span-3 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all ${activeTab === 'grooming' ? 'bg-soosi-green text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
-        <Icon name="scissors" size={16}/> 洗澡美容
-    </button>
-    <button onClick={() => setActiveTab('boarding')} className={`col-span-3 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all ${activeTab === 'boarding' ? 'bg-soosi-wood text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
-        <Icon name="home" size={16}/> 住宿安親
-    </button>
-    
-    {/* 後三個各佔 2 格 (平分第二排) */}
-    <button onClick={() => setActiveTab('crm')} className={`col-span-2 py-3 rounded-2xl font-black text-[10px] flex flex-col items-center gap-1 transition-all ${activeTab === 'crm' ? 'bg-soosi-dark text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
-        <Icon name="users" size={14}/> 顧客管理
-    </button>
-    <button onClick={() => setActiveTab('calendar')} className={`col-span-2 py-3 rounded-2xl font-black text-[10px] flex flex-col items-center gap-1 transition-all ${activeTab === 'calendar' ? 'bg-soosi-accent text-soosi-dark shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
-        <Icon name="calendar" size={14}/> 日曆檢視
-    </button>
-    <button onClick={() => setActiveTab('slots')} className={`col-span-2 py-3 rounded-2xl font-black text-[10px] flex flex-col items-center gap-1 transition-all ${activeTab === 'slots' ? 'bg-red-500 text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>
-        <Icon name="clock" size={14}/> 時段設定
-    </button>
+    {(activeTab === 'grooming' || activeTab === 'boarding') && (
+        <div className="flex items-center justify-between px-1">
+            <div className="text-[11px] font-black text-gray-400 flex items-center gap-1.5">
+                <Icon name="filter" size={14}/>
+                目前顯示：
+                <span className={`${showIncompleteOnly ? 'text-soosi-green' : 'text-soosi-wood'}`}>
+                    {showIncompleteOnly ? '只看未完成' : '顯示全部'}
+                </span>
+            </div>
+
+            <button
+                onClick={() => setShowIncompleteOnly(prev => !prev)}
+                className={`px-3 py-1.5 rounded-full text-[11px] font-black border transition-all flex items-center gap-1 ${
+                    showIncompleteOnly
+                        ? 'bg-soosi-green text-white border-soosi-green shadow-sm'
+                        : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                }`}
+            >
+                <Icon name="sliders-horizontal" size={13}/>
+                {showIncompleteOnly ? '切換成顯示全部' : '切換成只看未完成'}
+            </button>
+        </div>
+    )}
 </div>
 
                         {loading ? (
@@ -1681,7 +1800,7 @@ const fetchBusySlots = async (date) => {
                         ) : (
                             // --- 3. 一般訂單列表 (美容/住宿) - 已包含標籤偵測 ---
                             <div className="space-y-4">
-                                {filteredOrders.map(order => {
+                                {sortedFilteredOrders.map(order => {
                                     // 🌟 步驟 1: 解析原始資料 (為了相容舊訂單)
                                     let rawProps = {};
                                     try {
@@ -1817,7 +1936,7 @@ const hasFullGrooming = order.service_type === 'grooming' && (
                                         </div>
                                     );
                                 })}
-                                {filteredOrders.length === 0 && <div className="py-20 text-center text-gray-300 font-black">暫無相關預約訂單 🍃</div>}
+                                {sortedFilteredOrders.length === 0 && <div className="py-20 text-center text-gray-300 font-black">暫無相關預約訂單 🍃</div>}
                             </div>
                         )}
                     </main>
@@ -1879,7 +1998,7 @@ const App = () => {
                     const registerSW = async () => {
                         try {
 
-                            const registration = await navigator.serviceWorker.register('./sw-admin.js?v=23'
+                            const registration = await navigator.serviceWorker.register('./sw-admin.js?v=24'
                             );
                             
                             // 優化：檢查是否一進頁面就有正在等待中的更新（處理使用者曾忽略更新提示的情況）
