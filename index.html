@@ -1236,7 +1236,7 @@ const PillBtn = ({ active, onClick, children, className = "" }) => (
                     const registerSW = async () => {
                         try {
                             // 註冊 SW 
-                            const registration = await navigator.serviceWorker.register('./sw.js?v=31');
+                            const registration = await navigator.serviceWorker.register('./sw.js?v=32');
                             
                             // 監聽更新
                             registration.addEventListener('updatefound', () => {
@@ -4574,12 +4574,12 @@ if (view === 'success') {
     <p>
       若毛孩有特殊照護需求（如刷牙、餵藥〔限可混入食物者不另加價〕）、高齡犬、失智犬，
       或對其他犬隻具攻擊性、需分開照護等情況，
-      將依實際照護難度酌收每日新台幣 <span className="font-bold text-soosi-red">100–500 元</span> 之照護費用。
+      將依實際照護難度酌收每日新台幣 <span className="font-bold text-soosi-red">$100–500 元</span> 之照護費用。
     </p>
 
     <p>
       若狗狗需要「單獨放風」或無法與其他犬隻共同活動，
-      會依照照顧需求酌收 <span className="font-bold text-soosi-red">個別照護費 100–300 元/日</span>，
+      會依照顧需求酌收 <span className="font-bold text-soosi-red">個別照護費 $100–300 元/日</span>，
       用於安排專人分時段活動與安全管理。
     </p>
   </div>
