@@ -568,19 +568,37 @@ window.testWhiteScreenReport = () => {
             const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVocm5ndHNhc2h1bXZ3Z3phdW1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzMjMxNDUsImV4cCI6MjA4NDg5OTE0NX0.YDopNd9MHsjV9LFsHWyrxFIcWgQ_s0BMJlNSFqQfiTE';
             const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
             
-            const Icon = ({ name, size = 20, className = "" }) => {
-                const iconRef = useRef(null);
-                useEffect(() => {
-                    if (typeof window.lucide !== 'undefined' && iconRef.current) {
-                        window.lucide.createIcons({
-                            root: iconRef.current,
-                            attrs: { "stroke-width": 2.5, class: className },
-                            name: name
-                        });
-                    }
-                }, [name, className]);
-                return <span ref={iconRef} className="inline-flex items-center justify-center"><i data-lucide={name} style={{ width: size, height: size }}></i></span>;
-            };
+const Icon = ({ name, size = 20, className = "" }) => {
+    // ✅ FB / IG 改用本地 svg（避免 Lucide 缺 icon）
+    if (name === 'facebook' || name === 'instagram') {
+        const src = name === 'facebook' ? './fb.svg' : './ig.svg';
+        return (
+<img 
+    src={src}
+    alt={name}
+    style={{ width: size, height: size }}
+    className={`inline-block grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all line-img-fix ${className}`}
+/>
+        );
+    }
+
+    const iconRef = useRef(null);
+    useEffect(() => {
+        if (typeof window.lucide !== 'undefined' && iconRef.current) {
+            window.lucide.createIcons({
+                root: iconRef.current,
+                attrs: { "stroke-width": 2.5, class: className },
+                name: name
+            });
+        }
+    }, [name, className]);
+
+    return (
+        <span ref={iconRef} className="inline-flex items-center justify-center">
+            <i data-lucide={name} style={{ width: size, height: size }}></i>
+        </span>
+    );
+};
 // ✅ 防止送出後 JS 崩潰造成白畫面
 class ErrorBoundary extends React.Component {
     constructor(props) {
@@ -1218,7 +1236,7 @@ const PillBtn = ({ active, onClick, children, className = "" }) => (
                     const registerSW = async () => {
                         try {
                             // 註冊 SW 
-                            const registration = await navigator.serviceWorker.register('./sw.js?v=30');
+                            const registration = await navigator.serviceWorker.register('./sw.js?v=31');
                             
                             // 監聽更新
                             registration.addEventListener('updatefound', () => {
@@ -4530,17 +4548,57 @@ if (view === 'success') {
                                     </div>
                                 </div>
 
-                                {/* 三、住宿與照護安排 (修正編號) */}
-                                <div className="space-y-3">
-                                    <h5 className="font-black text-lg text-soosi-wood border-b-2 border-soosi-wood/10 pb-2">三、住宿與照護安排</h5>
-                                    <ul className="list-decimal pl-5 space-y-2">
-                                        <li><span className="font-bold">放風：</span>每日2次。若不希望參與、或寵物有健康疑慮，請主動告知。</li>
-                                        <li><span className="font-bold">飲食：</span>特殊飲食照護每日加收 <span className="font-bold">$100-$500</span>。若自備食物不足，代購費用另計。</li>
-                                        <li><span className="font-bold">物品：</span>請自備熟悉物品。抬腳尿尿狗狗將穿戴禮貌帶。</li>
-                                        <li><span className="font-bold">損壞賠償：</span>若寵物破壞設施，飼主須照價賠償。</li>
-                                    </ul>
-                                </div>
+{/* 三、住宿與照護安排 (修正編號) */}
+<div className="space-y-3">
+  <h5 className="font-black text-lg text-soosi-wood border-b-2 border-soosi-wood/10 pb-2">
+    三、住宿與照護安排
+  </h5>
 
+  <ul className="list-decimal pl-5 space-y-2">
+    <li><span className="font-bold">放風：</span>每日2次。若不希望參與、或寵物有健康疑慮，請主動告知。</li>
+    <li><span className="font-bold">飲食：</span>特殊飲食照護每日加收 
+        <span className="font-bold text-soosi-red"> $100-$500</span>。
+        若自備食物不足，代購費用另計。
+    </li>
+    <li><span className="font-bold">物品：</span>請自備熟悉物品。抬腳尿尿狗狗將穿戴禮貌帶。</li>
+    <li><span className="font-bold">損壞賠償：</span>若寵物破壞設施，飼主須照價賠償。</li>
+  </ul>
+
+  {/* ✅ 分隔線 + 提示 */}
+  <div className="border-t border-dashed border-soosi-wood/30 my-3"></div>
+  <div className="text-xs font-bold text-soosi-wood bg-soosi-wood/5 px-3 py-2 rounded-lg border border-soosi-wood/10">
+    ⚠️ 以下為「特殊照護需求」說明
+  </div>
+
+  <div className="space-y-2 text-sm text-soosi-dark leading-relaxed pt-1">
+    <p>
+      若毛孩有特殊照護需求（如刷牙、餵藥〔限可混入食物者不另加價〕）、高齡犬、失智犬，
+      或對其他犬隻具攻擊性、需分開照護等情況，
+      將依實際照護難度酌收每日新台幣 <span className="font-bold text-soosi-red">100–500 元</span> 之照護費用。
+    </p>
+
+    <p>
+      若狗狗需要「單獨放風」或無法與其他犬隻共同活動，
+      會依照照顧需求酌收 <span className="font-bold text-soosi-red">個別照護費 100–300 元/日</span>，
+      用於安排專人分時段活動與安全管理。
+    </p>
+  </div>
+
+  <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-2 text-sm">
+    <div className="font-bold text-soosi-wood">住宿照護方式說明</div>
+    <ul className="list-disc pl-5 space-y-1 text-gray-600">
+      <li><span className="font-bold text-soosi-dark">穩定、親狗的狗狗：</span>安排小群互動放風</li>
+      <li><span className="font-bold text-soosi-dark">較敏感或不適合群體的狗狗：</span>安排個別放風與低刺激活動</li>
+    </ul>
+    <p className="text-xs text-gray-500 mt-2">
+      部分狗狗在陌生環境中與其他狗狗接觸可能會產生壓力或防衛行為，
+      因此我們會優先以「情緒穩定與安全」為考量，而非強制社交或長時間活動。
+    </p>
+    <p className="text-xs text-gray-500">
+      放風時間採「分批安排」，並非所有狗狗同時活動。
+    </p>
+  </div>
+</div>
                                 {/* 四、緊急狀況與送醫 (修正編號) */}
                                 <div className="space-y-3">
                                     <h5 className="font-black text-lg text-soosi-wood border-b-2 border-soosi-wood/10 pb-2">四、緊急狀況與送醫</h5>
