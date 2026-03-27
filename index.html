@@ -1236,7 +1236,7 @@ const PillBtn = ({ active, onClick, children, className = "" }) => (
                     const registerSW = async () => {
                         try {
                             // 註冊 SW 
-                            const registration = await navigator.serviceWorker.register('./sw.js?v=32');
+                            const registration = await navigator.serviceWorker.register('./sw.js?v=33');
                             
                             // 監聽更新
                             registration.addEventListener('updatefound', () => {
@@ -1317,7 +1317,15 @@ const PillBtn = ({ active, onClick, children, className = "" }) => (
         // 2. 通用輸入處理 (文字、日期、單選)
         const handleInputChange = (e) => {
             const { name, value } = e.target;
-            setFormData(prev => ({ ...prev, [name]: value }));
+            setFormData(prev => {
+                const next = { ...prev, [name]: value };
+
+                if (name === 'bookingTime' && prev.bookingTimeEnd && prev.bookingTimeEnd <= value) {
+                    next.bookingTimeEnd = '';
+                }
+
+                return next;
+            });
         };
 
         // 3. 複選框處理 (針對籠內訓練)
@@ -1682,27 +1690,42 @@ const handleApplyHistory = (record) => {
                     const mode = params.get('mode');
                     
                     if (mode === 'customer') {
-                        setIsCustomerMode(true); // 進入鎖定模式
-                        setView('form'); // 直接跳到填寫頁面
+                        setIsCustomerMode(true);
+                        setView('form');
                         
-                        // 判斷是美容還是住宿
                         const viewType = params.get('type');
-                        if (viewType === 'boarding') setIsBoarding(true);
-                        else setIsBoarding(false);
+                        if (viewType === 'boarding' || viewType === 'daycare') {
+                            setIsBoarding(true);
+                        } else {
+                            setIsBoarding(false);
+                        }
 
                         const newConfig = {};
+
+                        // 判斷是否為安親模式
+                        const daycareFlag = params.get('daycare');
+                        const isDaycareFromUrl = viewType === 'daycare' || daycareFlag === 'true';
+                        newConfig.isDaycare = isDaycareFromUrl;
+
                         // 帶入預約時間
                         if (params.get('date')) newConfig.bookingDate = params.get('date');
                         if (params.get('time')) newConfig.bookingTime = params.get('time');
+                        if (params.get('timeEnd')) newConfig.bookingTimeEnd = params.get('timeEnd');
                         if (params.get('in')) newConfig.checkInDate = params.get('in');
                         if (params.get('out')) newConfig.checkOutDate = params.get('out');
 
+                        // 安親若未帶 date，但有帶 in，則起始日期沿用 in
+                        if (isDaycareFromUrl && !newConfig.checkInDate && params.get('in')) {
+                            newConfig.checkInDate = params.get('in');
+                        }
+
                         // 帶入金額設定
-                        if (params.get('price')) newConfig.estimated_price = params.get('price'); 
-                        if (params.get('ppn')) newConfig.price_per_night = params.get('ppn'); 
-                        if (params.get('hol')) newConfig.holiday_surcharge = params.get('hol'); 
-                        if (params.get('bgp')) newConfig.boarding_grooming_price = params.get('bgp'); 
+                        if (params.get('price')) newConfig.estimated_price = params.get('price');
+                        if (params.get('ppn')) newConfig.price_per_night = params.get('ppn');
+                        if (params.get('hol')) newConfig.holiday_surcharge = params.get('hol');
+                        if (params.get('bgp')) newConfig.boarding_grooming_price = params.get('bgp');
                         if (params.get('pet_type')) newConfig.pet_type = params.get('pet_type');
+
                         // 帶入服務項目
                         if (params.get('items')) {
                             newConfig.service_items = params.get('items').split(',');
@@ -1710,7 +1733,6 @@ const handleApplyHistory = (record) => {
                         if (params.get('other')) newConfig.service_items_other = decodeURIComponent(params.get('other'));
                         if (params.get('addGrooming')) newConfig.addGrooming = params.get('addGrooming') === 'true';
 
-                        // 一次性更新所有帶入的資料
                         setFormData(prev => ({ ...prev, ...newConfig }));
                     }
                 }, []);
@@ -1728,36 +1750,51 @@ const handleApplyHistory = (record) => {
                     }
                     setShowPwdModal(false);
                     
-                    // 執行原本的產生連結邏輯
                     const params = new URLSearchParams();
                     params.set('mode', 'customer');
                     
                     if (isBoarding) {
-                        params.set('type', 'boarding');
-                        if (formData.checkInDate) params.set('in', formData.checkInDate);
-                        if (formData.checkOutDate) params.set('out', formData.checkOutDate);
-                        
-                        // --- 🛠️ 修正：將住宿的細項金額也帶入連結 ---
-                        if (formData.price_per_night) params.set('ppn', formData.price_per_night); // 每晚單價
-                        if (formData.holiday_surcharge) params.set('hol', formData.holiday_surcharge); // 假日加價
-                        if (formData.boarding_grooming_price) params.set('bgp', formData.boarding_grooming_price); // 美容加購價
-                        
-                        // 記得帶入是否加購美容的狀態，不然客人端不會顯示美容金額欄位
-                        if (formData.addGrooming !== undefined) params.set('addGrooming', formData.addGrooming);
-                        
-                        // 總金額
-                        if (formData.estimated_price) params.set('price', formData.estimated_price);
+                        if (formData.isDaycare) {
+                            params.set('type', 'daycare');
+                            params.set('daycare', 'true');
+
+                            if (formData.checkInDate) params.set('in', formData.checkInDate);
+                            if (formData.checkInDate) params.set('date', formData.checkInDate);
+                            if (formData.bookingTime) params.set('time', formData.bookingTime);
+                            if (formData.bookingTimeEnd) params.set('timeEnd', formData.bookingTimeEnd);
+
+                            if (formData.estimated_price) params.set('price', formData.estimated_price);
+                        } else {
+                            params.set('type', 'boarding');
+                            params.set('daycare', 'false');
+
+                            if (formData.checkInDate) params.set('in', formData.checkInDate);
+                            if (formData.checkOutDate) params.set('out', formData.checkOutDate);
+
+                            if (formData.price_per_night) params.set('ppn', formData.price_per_night);
+                            if (formData.holiday_surcharge) params.set('hol', formData.holiday_surcharge);
+                            if (formData.boarding_grooming_price) params.set('bgp', formData.boarding_grooming_price);
+
+                            if (formData.addGrooming !== undefined) params.set('addGrooming', String(formData.addGrooming));
+
+                            if (formData.estimated_price) params.set('price', formData.estimated_price);
+                        }
                     } else {
                         params.set('type', 'grooming');
                         if (formData.bookingDate) params.set('date', formData.bookingDate);
                         if (formData.bookingTime) params.set('time', formData.bookingTime);
                         if (formData.estimated_price) params.set('price', formData.estimated_price);
                     }
+
                     params.set('pet_type', formData.pet_type);
-                    if (formData.service_items.length > 0) params.set('items', formData.service_items.join(','));
-                    
-                    // 帶入服務項目備註 (例如：只剪指甲)
-                    if (formData.service_items_other) params.set('other', encodeURIComponent(formData.service_items_other));
+
+                    if (formData.service_items.length > 0) {
+                        params.set('items', formData.service_items.join(','));
+                    }
+
+                    if (formData.service_items_other) {
+                        params.set('other', encodeURIComponent(formData.service_items_other));
+                    }
 
                     const finalUrl = `${window.location.href.split('?')[0].split('#')[0]}?${params.toString()}`;
                     
@@ -1837,7 +1874,11 @@ useEffect(() => {
 
             useEffect(() => {
         const fetchBusySlots = async () => {
-            // 判斷目前是美容還是住宿
+            if (isBoarding) {
+                setUnavailableSlots([]);
+                return;
+            }
+
             const targetDate = formData.bookingDate;
 
             if (!targetDate) {
@@ -1857,14 +1898,17 @@ useEffect(() => {
                     const slots = data.map(item => item.time_slot);
                     console.log(`📅 ${targetDate} 已關閉時段:`, slots);
                     setUnavailableSlots(slots);
+                } else {
+                    setUnavailableSlots([]);
                 }
             } catch (err) {
                 console.error("無法讀取忙碌時段:", err);
+                setUnavailableSlots([]);
             }
         };
 
         fetchBusySlots();
-    }, [formData.bookingDate]);
+    }, [formData.bookingDate, isBoarding]);
     // ★ 新增：集點卡資訊狀態
                 const [loyaltyInfo, setLoyaltyInfo] = useState(null);
 
@@ -2010,8 +2054,15 @@ const handleSwitchPet = (newIdx) => {
             setFormData(prev => {
                 const nextState = { ...prev };
                 PET_SPECIFIC_FIELDS.forEach(field => {
-                    if (['service_items', 'medical_history', 'diet_type', 'crateTraining'].includes(field)) nextState[field] = targetPet[field] || [];
-                    else nextState[field] = targetPet[field] || '';
+                    if (['service_items', 'medical_history', 'diet_type', 'crateTraining'].includes(field)) {
+                        nextState[field] = targetPet[field] || [];
+                    } else if (field === 'pet_type') {
+                        nextState[field] = targetPet[field] || 'dog';
+                    } else if (['is_under_one', 'hasTrialStay', 'addGrooming', 'usePromo50'].includes(field)) {
+                        nextState[field] = targetPet[field] || false;
+                    } else {
+                        nextState[field] = targetPet[field] || '';
+                    }
                 });
                 return nextState;
             });
@@ -2264,11 +2315,29 @@ const handleSwitchPet = (newIdx) => {
         const dataToValidate = { ...formData, estimated_price: calculatedTotalPrice };
 
         // --- A. 必填驗證開始 ---
-    const sharedRequired = ['owner_name', 'phone', 'image_auth'];
+        const sharedRequired = ['owner_name', 'phone', 'image_auth'];
         if (isBoarding) {
             sharedRequired.push('owner_id', 'address', 'emergency_name', 'emergency_phone');
-            if (!formData.checkInDate) newErrors.checkInDate = '請選擇日期';
-            if (!formData.isDaycare && !formData.checkOutDate) newErrors.checkOutDate = '請選擇日期';
+
+            if (!formData.checkInDate) {
+                newErrors.checkInDate = '請選擇日期';
+            }
+
+            if (formData.isDaycare) {
+                if (!formData.bookingTime) {
+                    newErrors.bookingTime = '請選擇起始時間';
+                }
+                if (!formData.bookingTimeEnd) {
+                    newErrors.bookingTimeEnd = '請選擇接回時間';
+                }
+                if (formData.bookingTime && formData.bookingTimeEnd && formData.bookingTimeEnd <= formData.bookingTime) {
+                    newErrors.bookingTimeEnd = '接回時間需晚於起始時間';
+                }
+            } else {
+                if (!formData.checkOutDate) {
+                    newErrors.checkOutDate = '請選擇日期';
+                }
+            }
         } else {
             sharedRequired.push('bookingDate', 'bookingTime');
         }
@@ -2280,57 +2349,59 @@ const handleSwitchPet = (newIdx) => {
             const petLabel = `第 ${index + 1} 隻(${pet.pet_name || '未命名'})：`;
             const petBasic = ['pet_name', 'breed', 'weight', 'sex', 'fix', 'grooming_temperament', 'medical_status', 'social_aggression'];
             if (pet.pet_type === 'dog') petBasic.push('social_play');
-            petBasic.forEach(f => { if(!pet[f]) newErrors[`${f}${suffix}`] = `${petLabel}必填`; });
-            if (pet.is_under_one ? !pet.age_months : !pet.age) newErrors[`${pet.is_under_one ? 'age_months' : 'age'}${suffix}`] = `${petLabel}請填寫年齡`;
-    if (isBoarding) {
-        ['chip_status', 'personality', 'pica', 'feeding_plan'].forEach(f => { 
-            if(!pet[f]) newErrors[`${f}${suffix}`] = `${petLabel}必填`; 
-        });
-// 1) 加購美容必填 (支援 true/false 字串)
-const add = pet.addGrooming === true || pet.addGrooming === 'true';
-const notAdd = pet.addGrooming === false || pet.addGrooming === 'false';
-
-if (!add && !notAdd) {
-    newErrors[`addGrooming${suffix}`] = `${petLabel}請選擇是否加購美容`;
-}
-
-// 2) 加購美容 → 金額必填
-if (add && !pet.boarding_grooming_price) {
-    newErrors[`boarding_grooming_price${suffix}`] = `${petLabel}請填寫美容加購金額`;
-}
-
-// 3) 加購美容 → 項目必選
-if (add && (!pet.service_items || pet.service_items.length === 0)) {
-    newErrors[`service_items${suffix}`] = `${petLabel}請勾選美容項目`;
-}
-        if(!pet.diet_type || pet.diet_type.length === 0) {
-            newErrors[`diet_type${suffix}`] = `${petLabel}請勾選飲食`;
-        }
-
-        // ✅ 新增：疫苗證明 (選有必須上傳)
-        if (pet.vaccine === '有' && !pet.vaccine_url) {
-            newErrors[`vaccine_url${suffix}`] = `${petLabel}疫苗證明必須上傳`;
-        }
-
-        // ✅ 新增：驅蟲牌子 (選有必填)
-        if (pet.deworm === '有' && !pet.deworm_brand) {
-            newErrors[`deworm_brand${suffix}`] = `${petLabel}請填寫驅蟲牌子`;
-        }
-
-        // ✅ 新增：洗澡證明 (狗狗且未加購美容)
-        if (pet.pet_type === 'dog' && pet.addGrooming === false) {
-            if (!pet.proof_type) {
-                newErrors[`proof_type${suffix}`] = `${petLabel}請選擇洗澡證明方式`;
-            } else if (pet.proof_type === 'upload' && !pet.proof_url) {
-                newErrors[`proof_url${suffix}`] = `${petLabel}需上傳洗澡證明`;
+            petBasic.forEach(f => { 
+                if (!pet[f]) newErrors[`${f}${suffix}`] = `${petLabel}必填`; 
+            });
+            if (pet.is_under_one ? !pet.age_months : !pet.age) {
+                newErrors[`${pet.is_under_one ? 'age_months' : 'age'}${suffix}`] = `${petLabel}請填寫年齡`;
             }
-        }
 
-    } else {
-        if (!pet.service_items || pet.service_items.length === 0) {
-            newErrors[`service_items${suffix}`] = `${petLabel}請選擇服務內容`;
-        }
-    }
+            if (isBoarding) {
+                ['chip_status', 'personality', 'pica', 'feeding_plan'].forEach(f => { 
+                    if (!pet[f]) newErrors[`${f}${suffix}`] = `${petLabel}必填`; 
+                });
+
+                if (!pet.diet_type || pet.diet_type.length === 0) {
+                    newErrors[`diet_type${suffix}`] = `${petLabel}請勾選飲食`;
+                }
+
+                if (pet.vaccine === '有' && !pet.vaccine_url) {
+                    newErrors[`vaccine_url${suffix}`] = `${petLabel}疫苗證明必須上傳`;
+                }
+
+                if (pet.deworm === '有' && !pet.deworm_brand) {
+                    newErrors[`deworm_brand${suffix}`] = `${petLabel}請填寫驅蟲牌子`;
+                }
+
+                if (!formData.isDaycare) {
+                    const add = pet.addGrooming === true || pet.addGrooming === 'true';
+                    const notAdd = pet.addGrooming === false || pet.addGrooming === 'false';
+
+                    if (!add && !notAdd) {
+                        newErrors[`addGrooming${suffix}`] = `${petLabel}請選擇是否加購美容`;
+                    }
+
+                    if (add && !pet.boarding_grooming_price) {
+                        newErrors[`boarding_grooming_price${suffix}`] = `${petLabel}請填寫美容加購金額`;
+                    }
+
+                    if (add && (!pet.service_items || pet.service_items.length === 0)) {
+                        newErrors[`service_items${suffix}`] = `${petLabel}請勾選美容項目`;
+                    }
+
+                    if (pet.pet_type === 'dog' && notAdd) {
+                        if (!pet.proof_type) {
+                            newErrors[`proof_type${suffix}`] = `${petLabel}請選擇洗澡證明方式`;
+                        } else if (pet.proof_type === 'upload' && !pet.proof_url) {
+                            newErrors[`proof_url${suffix}`] = `${petLabel}需上傳洗澡證明`;
+                        }
+                    }
+                }
+            } else {
+                if (!pet.service_items || pet.service_items.length === 0) {
+                    newErrors[`service_items${suffix}`] = `${petLabel}請選擇服務內容`;
+                }
+            }
         });
 
 let targetPetIdx = currentPetIdx;
@@ -2358,7 +2429,10 @@ Object.keys(newErrors).forEach(key => {
         ? '⚠️ 尚未填寫金額，請先傳訊息詢問粗略報價'
         : `⚠️ 還有欄位未填齊，已標記為紅色。`
 );
-            setTimeout(() => { document.getElementById(firstErrorKey.split('_')[0])?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 300);
+            setTimeout(() => {
+                const baseErrorKey = firstErrorKey ? firstErrorKey.replace(/_\d+$/, '') : '';
+                document.getElementById(baseErrorKey)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 300);
             return; 
         }
         // --- B. 驗證結束，開始傳送資料 ---
@@ -3114,20 +3188,22 @@ if (view === 'success') {
                                                     <input disabled={isCustomerMode} type="date" name="checkInDate" value={formData.checkInDate || ''} onChange={handleInputChange} className={`w-full cute-input px-4 py-3 ${errors.checkInDate ? 'input-error' : ''}`} />
                                                 </InputGroup>
                                                 <div className="grid grid-cols-2 gap-4">
-                                                    <InputGroup label="起始時間" id="bookingTime">
-                                                        <select disabled={isCustomerMode} name="bookingTime" value={formData.bookingTime || ''} onChange={handleInputChange} className="w-full cute-input px-4 py-3 appearance-none">
+                                                    <InputGroup label="起始時間" required error={errors.bookingTime} id="bookingTime">
+                                                        <select disabled={isCustomerMode} name="bookingTime" value={formData.bookingTime || ''} onChange={handleInputChange} className={`w-full cute-input px-4 py-3 appearance-none ${errors.bookingTime ? 'input-error' : ''}`}>
                                                             <option value=""></option>
-    {timeSlots.filter(t => !unavailableSlots.includes(t)).map(time => (
-                                                    <option key={time} value={time}>{time}</option>
-                                                ))}
+                                                            {timeSlots.map(time => (
+                                                                <option key={time} value={time}>{time}</option>
+                                                            ))}
                                                         </select>
                                                     </InputGroup>
-                                                    <InputGroup label="預計接回" id="bookingTimeEnd">
-                                                        <select disabled={isCustomerMode} name="bookingTimeEnd" value={formData.bookingTimeEnd || ''} onChange={handleInputChange} className="w-full cute-input px-4 py-3 appearance-none">
+                                                    <InputGroup label="預計接回" required error={errors.bookingTimeEnd} id="bookingTimeEnd">
+                                                        <select disabled={isCustomerMode} name="bookingTimeEnd" value={formData.bookingTimeEnd || ''} onChange={handleInputChange} className={`w-full cute-input px-4 py-3 appearance-none ${errors.bookingTimeEnd ? 'input-error' : ''}`}>
                                                             <option value=""></option>
-    {timeSlots.filter(t => !unavailableSlots.includes(t)).map(time => (
-                                                    <option key={time} value={time}>{time}</option>
-                                                ))}
+                                                            {timeSlots
+                                                                .filter(t => !formData.bookingTime || t > formData.bookingTime)
+                                                                .map(time => (
+                                                                    <option key={time} value={time}>{time}</option>
+                                                                ))}
                                                         </select>
                                                     </InputGroup>
                                                 </div>

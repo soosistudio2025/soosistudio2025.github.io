@@ -1,4 +1,4 @@
-const CACHE_NAME = 'soosi-pet-v1';
+const CACHE_NAME = 'soosi-pet-v3'; // 修改版本號來清空舊快取
 const ASSETS_TO_CACHE = [
   './index.html',
   './nav.png',
