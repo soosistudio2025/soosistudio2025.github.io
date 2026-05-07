@@ -1847,6 +1847,7 @@ useEffect(() => {
                 });
     const [showDiscountModal, setShowDiscountModal] = useState(false);
         const [discountMessage, setDiscountMessage] = useState('');
+    const promoDeadlineWarnedRef = useRef('');
     const [formData, setFormData] = useState({
         email: '', owner_name: '', phone: '', owner_id: '', address: '',
         emergency_name: '', emergency_phone: '',
@@ -2120,15 +2121,33 @@ const handleSwitchPet = (newIdx) => {
 
                     // ★ 修改：將後端回傳的集點資訊存入 State，供介面顯示
     if (data) {
+                        const selectedDate = new Date(`${checkDate}T00:00:00`);
+                        const deadlineDateStr = data.deadline ? String(data.deadline).split('T')[0] : null;
+                        const deadlineDate = deadlineDateStr ? new Date(`${deadlineDateStr}T00:00:00`) : null;
+                        const isPastDeadline = Boolean(data.eligible && deadlineDate && selectedDate > deadlineDate);
+                        const finalEligible = data.eligible && !isPastDeadline;
+                        const finalMessage = isPastDeadline
+                            ? '⚠️ 已超過本輪優惠期限，系統已自動取消本次 $200 折抵'
+                            : data.message;
+
                         setLoyaltyInfo({
                             count: data.count || 0,
-                            eligible: data.eligible,
+                            eligible: finalEligible,
                             deadline: data.deadline, 
-                            message: data.message
+                            message: finalMessage
                         });
 
                         // 原本的優惠彈窗與勾選邏輯
-                        if (data.eligible) {
+                        if (isPastDeadline) {
+                            if (formData.usePromo50) {
+                                setFormData(prev => ({ ...prev, usePromo50: false }));
+                            }
+                            const warnKey = `${formData.phone}_${formData.pet_name}_${checkDate}_${deadlineDateStr || ''}`;
+                            if (promoDeadlineWarnedRef.current !== warnKey) {
+                                promoDeadlineWarnedRef.current = warnKey;
+                                alert('⚠️ 你選擇的日期已超過優惠截止日，本次無法使用 $200 折扣。');
+                            }
+                        } else if (data.eligible) {
                             console.log("🎉 [Result] 符合資格！");
                             if (!formData.usePromo50) { 
                                 setFormData(prev => ({ ...prev, usePromo50: true }));
