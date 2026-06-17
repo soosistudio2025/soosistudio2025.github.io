@@ -45,6 +45,11 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script>
+        Babel.registerPreset('soosi-react', {
+            presets: [[Babel.availablePresets.react, { runtime: 'classic' }]],
+        });
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
 
 <style>
@@ -174,7 +179,7 @@
 <body>
     <div id="root"></div>
 
-<script type="text/babel">
+<script type="text/babel" data-presets="soosi-react">
         const { useState, useEffect, useRef, useMemo } = React;
         
         const Icon = ({ name, size = 20, className = "" }) => {

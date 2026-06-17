@@ -46,6 +46,12 @@
         <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
         <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
         <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+        <script>
+            // 強制使用 classic JSX，避免 Babel 產生 import 語法導致瀏覽器無法執行
+            Babel.registerPreset('soosi-react', {
+                presets: [[Babel.availablePresets.react, { runtime: 'classic' }]],
+            });
+        </script>
         <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
 
     <style>
@@ -235,7 +241,7 @@ body.sig-lock {
     </div>
 </div>
 
-    <script type="text/babel">
+    <script type="text/babel" data-presets="soosi-react">
         // 🌟 新增：將 Base64 簽名轉為 File 物件
     const dataURLtoFile = (dataurl, filename) => {
         let arr = dataurl.split(','),
@@ -361,7 +367,7 @@ const retry = async (fn, times = 2) => {
 const uploadToBucket = async (bucket, path, file) => {
     return await retry(async () => {
         const { data, error } = await withTimeout(
-            supabase.storage.from(bucket).upload(path, file),
+            supabaseClient.storage.from(bucket).upload(path, file),
             20000
         );
         if (error) throw error;
@@ -373,7 +379,7 @@ const uploadToBucket = async (bucket, path, file) => {
 const rpcCall = async (fn, args) => {
     return await retry(async () => {
         const { data, error } = await withTimeout(
-            supabase.rpc(fn, args),
+            supabaseClient.rpc(fn, args),
             20000
         );
         if (error) throw error;
@@ -566,7 +572,7 @@ window.testWhiteScreenReport = () => {
 
             const supabaseUrl = 'https://uhrngtsashumvwgzaumm.supabase.co'; 
             const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVocm5ndHNhc2h1bXZ3Z3phdW1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzMjMxNDUsImV4cCI6MjA4NDg5OTE0NX0.YDopNd9MHsjV9LFsHWyrxFIcWgQ_s0BMJlNSFqQfiTE';
-            const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+            const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
             
 const Icon = ({ name, size = 20, className = "" }) => {
     // ✅ FB / IG 改用本地 svg（避免 Lucide 缺 icon）
@@ -1236,7 +1242,7 @@ const PillBtn = ({ active, onClick, children, className = "" }) => (
                     const registerSW = async () => {
                         try {
                             // 註冊 SW 
-                            const registration = await navigator.serviceWorker.register('./sw.js?v=33');
+                            const registration = await navigator.serviceWorker.register('./sw.js?v=34');
                             
                             // 監聽更新
                             registration.addEventListener('updatefound', () => {
@@ -1379,7 +1385,7 @@ const PillBtn = ({ active, onClick, children, className = "" }) => (
         setIsSearching(true);
         try {
             // 🌟 關鍵修改：改用 rpc 呼叫後端函數，而不是直接 select 資料表
-            const { data, error } = await supabase.rpc('search_guest_history', { 
+            const { data, error } = await supabaseClient.rpc('search_guest_history', { 
                 phone_input: formData.phone 
             });
             if (error) throw error;
@@ -1613,13 +1619,13 @@ const handleApplyHistory = (record) => {
                         const filePath = `${fileName}`; 
 
                         // 上傳壓縮後的檔案
-                        const { data, error } = await supabase.storage
+                        const { data, error } = await supabaseClient.storage
                             .from('receipts')
                             .upload(filePath, compressedFile);
 
                         if (error) throw error;
 
-                        const { data: { publicUrl } } = supabase.storage
+                        const { data: { publicUrl } } = supabaseClient.storage
                             .from('receipts')
                             .getPublicUrl(filePath);
                         
@@ -1656,13 +1662,13 @@ const handleApplyHistory = (record) => {
                         const fileName = `vaccine_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
 
                         // 上傳壓縮後的檔案
-                        const { data, error } = await supabase.storage
+                        const { data, error } = await supabaseClient.storage
                             .from('vaccines')
                             .upload(fileName, compressedFile);
 
                         if (error) throw error;
 
-                        const { data: { publicUrl } } = supabase.storage
+                        const { data: { publicUrl } } = supabaseClient.storage
                             .from('vaccines')
                             .getPublicUrl(fileName);
                         
@@ -1888,7 +1894,7 @@ useEffect(() => {
             }
 
             try {
-                const { data, error } = await supabase
+                const { data, error } = await supabaseClient
                     .from('busy_slots')
                     .select('time_slot')
                     .eq('date', targetDate);
@@ -2106,7 +2112,7 @@ const handleSwitchPet = (newIdx) => {
                     const checkDate = formData.bookingDate || formData.checkInDate || new Date().toISOString().split('T')[0];
                     console.log(`🚀 [2] 呼叫 Supabase RPC (check_loyalty_eligibility)... 日期: ${checkDate}`);
 
-                    const { data, error } = await supabase.rpc('check_loyalty_eligibility', {
+                    const { data, error } = await supabaseClient.rpc('check_loyalty_eligibility', {
                         p_phone: formData.phone,
                         p_pet_name: formData.pet_name,
                         p_check_date: checkDate
@@ -2470,7 +2476,7 @@ const sigFile = dataURLtoFile(realtimeSig, `sig_${Date.now()}.png`);
 const sigPath = `${Date.now()}_${Math.random().toString(36).substring(7)}.png`;
 const sigData = await uploadToBucket('signatures', sigPath, sigFile);
 const { data: { publicUrl: signature_url } } =
-    supabase.storage.from('signatures').getPublicUrl(sigData.path);
+    supabaseClient.storage.from('signatures').getPublicUrl(sigData.path);
 
             // 2. 準備傳送給資料庫的最終物件
             const finalSubmitData = {

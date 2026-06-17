@@ -18,6 +18,11 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script>
+        Babel.registerPreset('soosi-react', {
+            presets: [[Babel.availablePresets.react, { runtime: 'classic' }]],
+        });
+    </script>
 
     <script>
         tailwind.config = {
@@ -90,13 +95,13 @@
 <body>
     <div id="root"></div>
 
-    <script type="text/babel">
+    <script type="text/babel" data-presets="soosi-react">
         const { useState, useEffect, useMemo, useRef } = React;
 
         // --- Supabase Config ---
         const supabaseUrl = 'https://uhrngtsashumvwgzaumm.supabase.co'; 
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVocm5ndHNhc2h1bXZ3Z3phdW1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzMjMxNDUsImV4cCI6MjA4NDg5OTE0NX0.YDopNd9MHsjV9LFsHWyrxFIcWgQ_s0BMJlNSFqQfiTE';
-        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+        const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 
         const ADMIN_EMAIL = "soosi.studio2025@gmail.com";
         const STAFF_EMAIL = "staff@soosi.com";
@@ -143,14 +148,14 @@ const handleVerify = async () => {
                 setVerifying(true);
                 try {
                     // 🌟 核心修正：先檢查當前登入狀態，避免 user 為空導致報錯
-                    const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
+                    const { data: { user: currentUser }, error: userError } = await supabaseClient.auth.getUser();
                     
                     if (userError || !currentUser) {
                         throw new Error("驗證失敗：登入資訊已過期，請重新整理頁面。");
                     }
 
                     // 使用獲取到的 currentUser.email 進行二段驗證
-                    const { error: loginError } = await supabase.auth.signInWithPassword({
+                    const { error: loginError } = await supabaseClient.auth.signInWithPassword({
                         email: currentUser.email,
                         password: pwd,
                     });
@@ -199,7 +204,7 @@ const handleVerify = async () => {
                 e.preventDefault();
                 setLoading(true);
                 setError('');
-                const { data, error: authError } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
+                const { data, error: authError } = await supabaseClient.auth.signInWithPassword({ email: loginEmail, password });
                 if (authError) {
                     setError('帳號或密碼錯誤');
                     setLoading(false);
@@ -1186,7 +1191,7 @@ if (isBoarding && activeTab === 'daily') {
                 try {
                     // 1. 執行環境檢查與登入驗證
                     // 為了修改密碼，必須以「該目標帳號」的身份進行驗證
-                    const { error: verifyError } = await supabase.auth.signInWithPassword({
+                    const { error: verifyError } = await supabaseClient.auth.signInWithPassword({
                         email: targetEmail,
                         password: oldPwd
                     });
@@ -1194,7 +1199,7 @@ if (isBoarding && activeTab === 'daily') {
                     if (verifyError) throw new Error(`${targetEmail === ADMIN_EMAIL ? '您的舊密碼' : '員工的舊密碼'}輸入錯誤`);
 
                     // 2. 更新該帳號的密碼
-                    const { error: updateError } = await supabase.auth.updateUser({ password: newPwd });
+                    const { error: updateError } = await supabaseClient.auth.updateUser({ password: newPwd });
                     if (updateError) throw updateError;
 
                     alert(`✅ [${targetEmail === ADMIN_EMAIL ? '管理員' : '員工'}] 密碼修改成功！`);
@@ -1442,7 +1447,7 @@ const [activeTab, setActiveTab] = useState('grooming');
             const [showIncompleteOnly, setShowIncompleteOnly] = useState(true);
             const fetchOrders = async () => {
                 setLoading(true);
-                let query = supabase
+                let query = supabaseClient
                     .from('bookings')
                     .select('*, booking_pets(*)')
                     .order('created_at', { ascending: false });
@@ -1459,7 +1464,7 @@ const [activeTab, setActiveTab] = useState('grooming');
             };
 
 const updateStatus = async (id, newStatus) => {
-    const { error } = await supabase.from('bookings').update({ status: newStatus }).eq('id', id);
+    const { error } = await supabaseClient.from('bookings').update({ status: newStatus }).eq('id', id);
     if (!error) {
         setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o));
 
@@ -1474,14 +1479,14 @@ const updateStatus = async (id, newStatus) => {
 };
 
             const updateNote = async (id, note) => {
-                const { error } = await supabase.from('bookings').update({ admin_note: note }).eq('id', id);
+                const { error } = await supabaseClient.from('bookings').update({ admin_note: note }).eq('id', id);
                 if (!error) {
                     setOrders(prev => prev.map(o => o.id === id ? { ...o, admin_note: note } : o));
                 }
             };
 
             const deleteOrder = async (id) => {
-                const { error } = await supabase.from('bookings').delete().eq('id', id);
+                const { error } = await supabaseClient.from('bookings').delete().eq('id', id);
                 if (!error) {
                     setOrders(prev => prev.filter(o => o.id !== id));
                     setSelectedOrder(null);
@@ -1492,7 +1497,7 @@ const updateStatus = async (id, newStatus) => {
             };
 
             const updateFullOrder = async (updatedOrder) => {
-                const { error: mainError } = await supabase.from('bookings').update({
+                const { error: mainError } = await supabaseClient.from('bookings').update({
                     owner_name: updatedOrder.owner_name,
                     phone: updatedOrder.phone,
                     email: updatedOrder.email,
@@ -1502,7 +1507,7 @@ const updateStatus = async (id, newStatus) => {
 
                 if (!mainError && updatedOrder.booking_pets) {
                     for (const pet of updatedOrder.booking_pets) {
-                        await supabase.from('booking_pets').update({
+                        await supabaseClient.from('booking_pets').update({
                             pet_name: pet.pet_name,
                             breed: pet.breed,
 sex: pet.sex,
@@ -1523,16 +1528,16 @@ sex: pet.sex,
             };
 
 const fetchBusySlots = async (date) => {
-                const { data } = await supabase.from('busy_slots').select('time_slot').eq('date', date);
+                const { data } = await supabaseClient.from('busy_slots').select('time_slot').eq('date', date);
                 setBusySlots(data?.map(d => d.time_slot) || []);
             };
 
             const toggleSlot = async (date, slot) => {
                 if (busySlots.includes(slot)) {
-                    await supabase.from('busy_slots').delete().eq('date', date).eq('time_slot', slot);
+                    await supabaseClient.from('busy_slots').delete().eq('date', date).eq('time_slot', slot);
                     setBusySlots(prev => prev.filter(s => s !== slot));
                 } else {
-                    await supabase.from('busy_slots').insert({ date, time_slot: slot });
+                    await supabaseClient.from('busy_slots').insert({ date, time_slot: slot });
                     setBusySlots(prev => [...prev, slot]);
                 }
             };
@@ -1680,7 +1685,7 @@ const sortedFilteredOrders = useMemo(() => {
                                     <Icon name="key" size={16}/>
                                 </button>
                             )}
-                            <button onClick={() => supabase.auth.signOut()} className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-soosi-red transition-all" title="登出">
+                            <button onClick={() => supabaseClient.auth.signOut()} className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-soosi-red transition-all" title="登出">
                                 <Icon name="log-out" size={18}/>
                             </button>
                         </div>
@@ -1988,8 +1993,8 @@ const App = () => {
             const [waitingWorker, setWaitingWorker] = useState(null); // 新增：用來儲存等待中的 Service Worker
 
             useEffect(() => {
-                supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
-                supabase.auth.onAuthStateChange((_event, session) => setSession(session));
+                supabaseClient.auth.getSession().then(({ data: { session } }) => setSession(session));
+                supabaseClient.auth.onAuthStateChange((_event, session) => setSession(session));
             }, []);
 
             // 🌟 新增：Service Worker 監聽邏輯 (Admin 版)
