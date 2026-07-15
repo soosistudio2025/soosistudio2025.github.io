@@ -1241,16 +1241,23 @@ const PillBtn = ({ active, onClick, children, className = "" }) => (
                 if ('serviceWorker' in navigator) {
                     const registerSW = async () => {
                         try {
-                            // 註冊 SW 
-                            const registration = await navigator.serviceWorker.register('./sw.js?v=34');
+                            const registration = await navigator.serviceWorker.register('./sw.js?v=35');
                             
-                            // 監聽更新
+                            const justUpdated = sessionStorage.getItem('sw_just_updated') === 'true';
+                            if (justUpdated) {
+                                sessionStorage.removeItem('sw_just_updated');
+                                setShowUpdate(false);
+                                return;
+                            }
+
+                            if (registration.waiting) {
+                                setShowUpdate(true);
+                            }
+
                             registration.addEventListener('updatefound', () => {
                                 const newWorker = registration.installing;
                                 newWorker.addEventListener('statechange', () => {
-                                    // 當新版本安裝完成 (installed) 且目前已經有控制權 (controller) 代表是更新而非首次載入
                                     if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                        // ✨ 觸發我們自訂的 UI，而不是醜醜的 alert
                                         setShowUpdate(true);
                                     }
                                 });
@@ -1295,11 +1302,7 @@ const PillBtn = ({ active, onClick, children, className = "" }) => (
             const UpdatePrompt = ({ show, onUpdate }) => {
                 if (!show) return null;
                 return (
-                    // 修改說明：
-                    // 1. top-[calc(env(safe-area-inset-top)+1.5rem)] -> 自動計算劉海高度並往下推 1.5rem
-                    // 2. z-[400] -> 確保在最上層
                     <div className="fixed left-6 right-6 z-[400] md:left-1/2 md:-translate-x-1/2 md:w-auto md:min-w-[320px] top-[calc(env(safe-area-inset-top)+1.5rem)]">
-                        {/* 動畫改為從上方滑入 (slide-in-from-top-4) */}
                         <div className="bg-white p-4 rounded-2xl shadow-2xl border-2 border-soosi-green flex items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-500">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 bg-soosi-green text-white rounded-full flex items-center justify-center shrink-0 animate-spin-slow">
@@ -2787,7 +2790,21 @@ if (view === 'success') {
                 return (
                     <div className="min-h-screen pb-32">
                         <ToastUI />
-                        <UpdatePrompt show={showUpdate} onUpdate={() => window.location.reload()} />
+                        <UpdatePrompt show={showUpdate} onUpdate={() => {
+                            sessionStorage.setItem('sw_just_updated', 'true');
+                            const onControllerChange = () => {
+                                window.location.reload();
+                                navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+                            };
+                            navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+                            navigator.serviceWorker.getRegistration().then(reg => {
+                                if (reg && reg.waiting) {
+                                    reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                                } else {
+                                    window.location.reload();
+                                }
+                            });
+                        }} />
                         {/* Nav: Logo 放大 */}
                         <nav className="fixed top-0 w-full z-40 bg-white/90 backdrop-blur-xl border-b border-soosi-green/10 shadow-sm transition-all">
                             <div className="px-6 py-3 flex justify-between items-center max-w-3xl mx-auto">
