@@ -104,7 +104,7 @@
         const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 
         const ADMIN_EMAIL = "soosi.studio2025@gmail.com";
-        const STAFF_EMAIL = "staff@soosi.com";
+        const STAFF_EMAIL = "soosi.studio2025@staff.com";
 
         const Icon = ({ name, size = 18, className = "" }) => {
             const iconRef = useRef(null);
@@ -1434,11 +1434,1285 @@ const CalendarView = ({ orders, onSelectOrder }) => {
             );
         };
 
-        // --- 主 Dashboard ---
-// --- 主 Dashboard (完整版：包含全能標籤偵測) ---
+
+
+        // --- 價目表管理組件 ---
+        const PriceManager = () => {
+            const [priceData, setPriceData] = useState({
+                dogs: [],
+                cats: [],
+                extras: []
+            });
+            const [loading, setLoading] = useState(true);
+            const [saving, setSaving] = useState(false);
+            const [activeCategory, setActiveCategory] = useState('dogs');
+            const [toast, setToast] = useState(null);
+            const [showPwdModal, setShowPwdModal] = useState(false);
+            const [pendingSave, setPendingSave] = useState(false);
+            // 住宿圖片預覽用
+            const [boardingImages, setBoardingImages] = useState([]);
+            const [boardingImagesLoading, setBoardingImagesLoading] = useState(false);
+
+            // Toast 顯示函數
+            const showToast = (message, type = 'success') => {
+                setToast({ message, type });
+                setTimeout(() => setToast(null), 3000);
+            };
+
+            const fetchPriceData = async () => {
+                setLoading(true);
+                try {
+                    const { data, error } = await supabaseClient
+                        .from('price_config')
+                        .select('*');
+                    
+                    if (error) throw error;
+                    
+                    const result = { dogs: [], cats: [], extras: [] };
+                    
+                    if (data && data.length > 0) {
+                        data.forEach(item => {
+                            if (item.category === 'dogs') result.dogs = item.config_value;
+                            else if (item.category === 'cats') result.cats = item.config_value;
+                            else if (item.category === 'extras') result.extras = item.config_value;
+                        });
+                    } else {
+                        // 如果資料庫沒有資料，使用前台的預設值
+                        result.dogs = [
+                            { weight: '5kg 以下', typeA: '吉娃娃、迷你臘腸、迷你品、短毛幼犬', typeB: '貴賓、瑪爾濟斯、約克夏、博美、西施、蝴蝶犬', small: '500~700', full: '1000~1400' },
+                            { weight: '5-10kg', typeA: '巴戈、法鬥、標準臘腸、傑克羅素、雪納瑞(短)', typeB: '比熊、狐狸犬、西高地、北京犬、雪納瑞(長)', small: '600~900', full: '1200~1800' },
+                            { weight: '10-20kg', typeA: '柯基、柴犬、米格魯、台灣犬(小)、惠比特', typeB: '喜樂蒂、邊境牧羊犬、銀狐、澳洲牧羊犬', small: '1000~1800', full: '2000~3500' },
+                            { weight: '20-30kg', typeA: '台灣犬(中)、高山犬、米克斯(中)', typeB: '哈士奇、鬆獅犬、標準貴賓、古代牧羊犬', small: '1400~2000', full: '2800~4500' },
+                            { weight: '30-40kg', typeA: '拉布拉多、黃金獵犬、威瑪、杜賓、拳師', typeB: '薩摩耶、秋田、大型鬆獅、阿富汗獵犬', small: '1800~2200', full: '3600~5500' },
+                            { weight: '40kg 以上', typeA: '大丹、羅威納、藏獒、大型獒犬', typeB: '阿拉斯加、大白熊、聖伯納、伯恩山', small: '2000~2400', full: '4000~6500' }
+                        ];
+                        result.cats = [
+                            { type: '幼貓', sub: '2-6個月', small: '600', full: '-', note: '*視親人程度' },
+                            { type: '短毛貓', sub: '2-6kg / >6kg', small: '800 / 1000', full: '1600 / 2000', note: '*6kg以上 +$100/kg' },
+                            { type: '中長毛', sub: '2-6kg / >6kg', small: '1000 / 1200', full: '2000 / 2400', note: '*6kg以上 +$100/kg' },
+                            { type: '長毛貓', sub: '2-6kg / >6kg', small: '1200 / 1400', full: '2400 / 2800', note: '*6kg以上 +$100/kg' },
+                            { type: '升級項目', sub: '去油選項', small: '局部 200', full: '全身 800~1000', note: '*視毛量與狀況而定' }
+                        ];
+                        result.extras = [
+                            { id: 'local', name: '局部修飾', desc: '貴賓臉/腳', price: '$150 / $300', forDogOnly: true },
+                            { id: 'style', name: '特殊造型', desc: '腳球 / 腳柱', price: '$400起 / $600起', forDogOnly: true },
+                            { id: 'scissor', name: '全身手剪', desc: '全身造型修剪', price: '$500起', forDogOnly: true },
+                            { id: 'other', name: '其他費用', desc: '拆結 / 除蚤 / 兇', price: '現場報價', forDogOnly: false }
+                        ];
+                    }
+                    setPriceData(result);
+                } catch (err) {
+                    showToast('讀取價目表失敗: ' + err.message, 'error');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            // 實際執行儲存
+            const executeSave = async () => {
+                setSaving(true);
+                try {
+                    const categories = ['dogs', 'cats', 'extras'];
+                    for (const cat of categories) {
+                        // 1. 先刪除該分類的舊資料
+                        const { error: deleteError } = await supabaseClient
+                            .from('price_config')
+                            .delete()
+                            .eq('category', cat);
+                        
+                        if (deleteError) throw deleteError;
+                        
+                        // 2. 插入新資料
+                        const { error: insertError } = await supabaseClient
+                            .from('price_config')
+                            .insert({
+                                category: cat,
+                                config_key: 'default',
+                                config_value: priceData[cat],
+                                updated_at: new Date().toISOString()
+                            });
+                        
+                        if (insertError) throw insertError;
+                    }
+                    showToast('✅ 價目表已儲存！', 'success');
+                } catch (err) {
+                    showToast('❌ 儲存失敗: ' + err.message, 'error');
+                } finally {
+                    setSaving(false);
+                    setPendingSave(false);
+                }
+            };
+
+            // 點擊儲存按鈕 -> 顯示密碼 Modal
+            const handleSaveClick = () => {
+                setShowPwdModal(true);
+            };
+
+            // 密碼驗證通過後執行儲存
+            const onPasswordVerified = async () => {
+                setShowPwdModal(false);
+                setPendingSave(true);
+                await executeSave();
+            };
+
+            useEffect(() => {
+                fetchPriceData();
+            }, []);
+
+            // 載入住宿圖片（用於預覽）
+            const fetchBoardingImages = async () => {
+                setBoardingImagesLoading(true);
+                try {
+                    const { data, error } = await supabaseClient
+                        .from('boarding_price_images')
+                        .select('*')
+                        .order('display_order', { ascending: true });
+                    
+                    if (error) throw error;
+                    setBoardingImages(data || []);
+                } catch (error) {
+                    console.error('載入住宿圖片失敗:', error);
+                } finally {
+                    setBoardingImagesLoading(false);
+                }
+            };
+
+            // 當切換到 boarding_images Tab 時載入圖片
+            useEffect(() => {
+                if (activeCategory === 'boarding_images') {
+                    fetchBoardingImages();
+                }
+            }, [activeCategory]);
+
+            // 監聽 boarding_images 的更新（當圖片管理組件有變更時重新載入）
+            // 使用 Event 或 定時檢查，這裡用簡單的方式：每當 activeCategory 是 boarding_images 時，每 5 秒檢查一次
+            useEffect(() => {
+                if (activeCategory === 'boarding_images') {
+                    const intervalId = setInterval(() => {
+                        fetchBoardingImages();
+                    }, 5000);
+                    return () => clearInterval(intervalId);
+                }
+            }, [activeCategory]);
+
+            // 狗狗編輯
+            const updateDog = (index, field, value) => {
+                setPriceData(prev => {
+                    const newDogs = [...prev.dogs];
+                    newDogs[index] = { ...newDogs[index], [field]: value };
+                    return { ...prev, dogs: newDogs };
+                });
+            };
+
+            const addDog = () => {
+                setPriceData(prev => ({
+                    ...prev,
+                    dogs: [...prev.dogs, { weight: '', typeA: '', typeB: '', small: '', full: '' }]
+                }));
+            };
+
+            const deleteDog = (index) => {
+                if (!confirm('確定要刪除這項嗎？')) return;
+                setPriceData(prev => ({
+                    ...prev,
+                    dogs: prev.dogs.filter((_, i) => i !== index)
+                }));
+            };
+
+            // 貓咪編輯
+            const updateCat = (index, field, value) => {
+                setPriceData(prev => {
+                    const newCats = [...prev.cats];
+                    newCats[index] = { ...newCats[index], [field]: value };
+                    return { ...prev, cats: newCats };
+                });
+            };
+
+            const addCat = () => {
+                setPriceData(prev => ({
+                    ...prev,
+                    cats: [...prev.cats, { type: '', sub: '', small: '', full: '', note: '' }]
+                }));
+            };
+
+            const deleteCat = (index) => {
+                if (!confirm('確定要刪除這項嗎？')) return;
+                setPriceData(prev => ({
+                    ...prev,
+                    cats: prev.cats.filter((_, i) => i !== index)
+                }));
+            };
+
+            // 額外項目編輯
+            const updateExtra = (index, field, value) => {
+                setPriceData(prev => {
+                    const newExtras = [...prev.extras];
+                    newExtras[index] = { ...newExtras[index], [field]: value };
+                    return { ...prev, extras: newExtras };
+                });
+            };
+
+            const addExtra = () => {
+                setPriceData(prev => ({
+                    ...prev,
+                    extras: [...prev.extras, { id: Date.now().toString(), name: '', desc: '', price: '', forDogOnly: false }]
+                }));
+            };
+
+            const deleteExtra = (index) => {
+                if (!confirm('確定要刪除這項嗎？')) return;
+                setPriceData(prev => ({
+                    ...prev,
+                    extras: prev.extras.filter((_, i) => i !== index)
+                }));
+            };
+
+            if (loading) {
+                return <div className="py-20 text-center text-[#B5A89C] font-bold">載入價目表中...</div>;
+            }
+
+            // Toast 顯示
+            const ToastDisplay = () => {
+                if (!toast) return null;
+                return (
+                    <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl shadow-lg font-bold text-sm transition-all ${
+                        toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+                    }`}>
+                        {toast.message}
+                    </div>
+                );
+            };
+
+                        // 密碼輸入元件 (內部使用)
+            const PasswordInput = ({ onConfirm, onCancel }) => {
+                const [pwd, setPwd] = useState("");
+                const [verifying, setVerifying] = useState(false);
+
+                const handleVerify = async () => {
+                    setVerifying(true);
+                    try {
+                        const { error: loginError } = await supabaseClient.auth.signInWithPassword({
+                            email: ADMIN_EMAIL,
+                            password: pwd,
+                        });
+
+                        if (loginError) throw new Error("密碼錯誤，請重新輸入");
+                        
+                        onConfirm();
+                        setPwd("");
+                    } catch (err) {
+                        alert(err.message);
+                    } finally {
+                        setVerifying(false);
+                    }
+                };
+
+                return (
+                    <>
+                        <input 
+                            type="password" 
+                            autoFocus
+                            value={pwd}
+                            onChange={(e) => setPwd(e.target.value)}
+                            placeholder="••••••••"
+                            className="w-full cute-input px-4 py-3 text-center text-2xl tracking-[0.5em] mb-6 focus:ring-soosi-green/20"
+                            onKeyDown={(e) => e.key === 'Enter' && handleVerify()}
+                        />
+                        <div className="flex gap-3 w-full">
+                            <button onClick={onCancel} className="flex-1 py-3 text-gray-400 font-bold text-sm hover:bg-gray-50 rounded-xl transition-colors">取消</button>
+                            <button 
+                                onClick={handleVerify} 
+                                disabled={verifying}
+                                className="flex-1 py-3 bg-soosi-green text-white rounded-2xl font-bold shadow-lg shadow-soosi-green/20 active:scale-95 transition-all disabled:opacity-50"
+                            >
+                                {verifying ? '驗證中...' : '確認儲存'}
+                            </button>
+                        </div>
+                    </>
+                );
+            };
+
+            return (
+                <div className="bg-white p-6 rounded-[2rem] shadow-sm space-y-6 border border-[#DDD6CE]">
+                    <ToastDisplay />
+                    
+                    {/* 密碼驗證 Modal */}
+                    {showPwdModal && (
+                        <div className="fixed inset-0 z-[200] bg-soosi-dark/60 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
+                            <div className="w-full max-w-xs bg-white rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 flex flex-col items-center text-center">
+                                <div className="w-16 h-16 bg-soosi-green/10 rounded-full flex items-center justify-center text-soosi-green mb-4">
+                                    <Icon name="shield-check" size={32} />
+                                </div>
+                                <h3 className="font-black text-xl text-soosi-dark mb-2">權限驗證</h3>
+                                <p className="text-xs text-gray-400 mb-6">請輸入管理員密碼以儲存價目表變更</p>
+                                <PasswordInput 
+                                    onConfirm={onPasswordVerified}
+                                    onCancel={() => setShowPwdModal(false)}
+                                />
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Header */}
+                    <div className="flex justify-between items-center border-b border-[#DDD6CE] pb-4">
+                        <div>
+                            <h3 className="font-bold text-lg text-[#203B2A] flex items-center gap-2">
+                                <Icon name="dollar-sign" size={20} className="text-[#B8A088]"/> 價目表管理
+                            </h3>
+                            <p className="text-[10px] text-gray-400 font-medium mt-0.5">編輯後點擊儲存，前台將即時更新</p>
+                        </div>
+                        <button 
+                            onClick={handleSaveClick} 
+                            disabled={saving}
+                            className="px-6 py-2.5 bg-[#203B2A] text-white rounded-xl text-sm font-bold shadow-md hover:bg-[#162B1F] active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2"
+                        >
+                            {saving ? <Icon name="loader-2" className="animate-spin" size={16}/> : <Icon name="save" size={16}/>}
+                            {saving ? '儲存中...' : '儲存變更'}
+                        </button>
+                    </div>
+
+                    {/* Tab 切換 */}
+                    <div className="flex gap-2 bg-[#FAF8F5] p-1 rounded-xl">
+                        {[
+                            { id: 'dogs', label: '🐶 狗狗', count: priceData.dogs.length },
+                            { id: 'cats', label: '🐱 貓咪', count: priceData.cats.length },
+                            { id: 'extras', label: '✨ 額外項目', count: priceData.extras.length },
+                            { id: 'boarding_images', label: '🏠 住宿圖片', count: 2 }
+                        ].map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveCategory(tab.id)}
+                                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                                    activeCategory === tab.id 
+                                    ? 'bg-white shadow-sm text-[#203B2A] border border-[#DDD6CE]' 
+                                    : 'text-[#B5A89C] hover:text-[#203B2A]'
+                                }`}
+                            >
+                                {tab.label}
+                                <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${
+                                    activeCategory === tab.id ? 'bg-[#203B2A]/10' : 'bg-gray-100'
+                                }`}>
+                                    {tab.count}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* ========== 狗狗價目表 ========== */}
+                    {activeCategory === 'dogs' && (
+                        <div className="space-y-4">
+                            <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 flex items-start gap-2">
+                                <Icon name="info" size={16} className="text-blue-500 mt-0.5 shrink-0"/>
+                                <div className="text-[11px] text-blue-700 font-medium leading-relaxed">
+                                    <span className="font-bold">欄位說明：</span>
+                                    體重範圍、短毛範例、長毛範例、小美容價格、大美容價格
+                                </div>
+                            </div>
+
+                            {/* 表格標題 */}
+                            <div className="grid grid-cols-5 gap-2 text-[10px] font-black text-gray-400 px-1">
+                                <div>體重範圍</div>
+                                <div>短毛範例</div>
+                                <div>長毛範例</div>
+                                <div>小美容</div>
+                                <div>大美容</div>
+                            </div>
+
+                            {/* 表格內容 */}
+                            {priceData.dogs.map((item, index) => (
+                                <div key={index} className="grid grid-cols-5 gap-2 items-center bg-[#FAF8F5] p-2 rounded-xl border border-[#DDD6CE]">
+                                    <input 
+                                        type="text" 
+                                        placeholder="5kg 以下" 
+                                        value={item.weight || ''}
+                                        onChange={e => updateDog(index, 'weight', e.target.value)}
+                                        className="admin-input text-xs col-span-1"
+                                    />
+                                    <textarea 
+                                        placeholder="短毛範例&#10;(換行輸入)" 
+                                        value={item.typeA || ''}
+                                        onChange={e => updateDog(index, 'typeA', e.target.value)}
+                                        className="admin-input text-xs col-span-1 resize-none min-h-[60px] max-h-[120px] py-1"
+                                        rows="2"
+                                    />
+                                    <textarea 
+                                        placeholder="長毛範例&#10;(換行輸入)" 
+                                        value={item.typeB || ''}
+                                        onChange={e => updateDog(index, 'typeB', e.target.value)}
+                                        className="admin-input text-xs col-span-1 resize-none min-h-[60px] max-h-[120px] py-1"
+                                        rows="2"
+                                    />
+                                    <input 
+                                        type="text" 
+                                        placeholder="500~700" 
+                                        value={item.small || ''}
+                                        onChange={e => updateDog(index, 'small', e.target.value)}
+                                        className="admin-input text-xs col-span-1"
+                                    />
+                                    <div className="flex items-center gap-1 col-span-1">
+                                        <input 
+                                            type="text" 
+                                            placeholder="1000~1400" 
+                                            value={item.full || ''}
+                                            onChange={e => updateDog(index, 'full', e.target.value)}
+                                            className="admin-input text-xs flex-1"
+                                        />
+                                        <button onClick={() => deleteDog(index)} 
+                                            className="text-red-400 hover:text-red-600 p-1 rounded-full hover:bg-red-50 transition-all shrink-0"
+                                            title="刪除">
+                                            <Icon name="x" size={14}/>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+
+                            <button onClick={addDog} 
+                                className="w-full py-3 border-2 border-dashed border-[#B8A088]/30 rounded-xl text-[#B8A088] font-bold text-sm hover:bg-[#FAF8F5] transition-all flex items-center justify-center gap-2">
+                                <Icon name="plus" size={16}/> 新增狗狗價位
+                            </button>
+                        </div>
+                    )}
+
+                    {/* ========== 貓咪價目表 ========== */}
+                    {activeCategory === 'cats' && (
+                        <div className="space-y-4">
+                            <div className="bg-purple-50 p-3 rounded-lg border border-purple-100 flex items-start gap-2">
+                                <Icon name="info" size={16} className="text-purple-500 mt-0.5 shrink-0"/>
+                                <div className="text-[11px] text-purple-700 font-medium leading-relaxed">
+                                    <span className="font-bold">欄位說明：</span>
+                                    類型、子項目、小美容價格、大美容價格、備註
+                                </div>
+                            </div>
+
+                            {/* 表格標題 */}
+                            <div className="grid grid-cols-5 gap-2 text-[10px] font-black text-gray-400 px-1">
+                                <div>類型</div>
+                                <div>子項目</div>
+                                <div>小美容</div>
+                                <div>大美容</div>
+                                <div>備註</div>
+                            </div>
+
+                            {/* 表格內容 */}
+                            {priceData.cats.map((item, index) => (
+                                <div key={index} className="grid grid-cols-5 gap-2 items-center bg-[#FAF8F5] p-2 rounded-xl border border-[#DDD6CE]">
+                                    <input 
+                                        type="text" 
+                                        placeholder="短毛貓" 
+                                        value={item.type || ''}
+                                        onChange={e => updateCat(index, 'type', e.target.value)}
+                                        className="admin-input text-xs col-span-1"
+                                    />
+                                    <input 
+                                        type="text" 
+                                        placeholder="2-6kg" 
+                                        value={item.sub || ''}
+                                        onChange={e => updateCat(index, 'sub', e.target.value)}
+                                        className="admin-input text-xs col-span-1"
+                                    />
+                                    <input 
+                                        type="text" 
+                                        placeholder="800" 
+                                        value={item.small || ''}
+                                        onChange={e => updateCat(index, 'small', e.target.value)}
+                                        className="admin-input text-xs col-span-1"
+                                    />
+                                    <input 
+                                        type="text" 
+                                        placeholder="1600" 
+                                        value={item.full || ''}
+                                        onChange={e => updateCat(index, 'full', e.target.value)}
+                                        className="admin-input text-xs col-span-1"
+                                    />
+                                    <div className="flex items-center gap-1 col-span-1">
+                                        <input 
+                                            type="text" 
+                                            placeholder="*6kg以上 +$100" 
+                                            value={item.note || ''}
+                                            onChange={e => updateCat(index, 'note', e.target.value)}
+                                            className="admin-input text-xs flex-1"
+                                        />
+                                        <button onClick={() => deleteCat(index)} 
+                                            className="text-red-400 hover:text-red-600 p-1 rounded-full hover:bg-red-50 transition-all shrink-0"
+                                            title="刪除">
+                                            <Icon name="x" size={14}/>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+
+                            <button onClick={addCat} 
+                                className="w-full py-3 border-2 border-dashed border-[#B8A088]/30 rounded-xl text-[#B8A088] font-bold text-sm hover:bg-[#FAF8F5] transition-all flex items-center justify-center gap-2">
+                                <Icon name="plus" size={16}/> 新增貓咪價位
+                            </button>
+                        </div>
+                    )}
+
+                    {/* ========== 額外項目 ========== */}
+                    {activeCategory === 'extras' && (
+                        <div className="space-y-4">
+                            <div className="bg-amber-50 p-3 rounded-lg border border-amber-100 flex items-start gap-2">
+                                <Icon name="info" size={16} className="text-amber-500 mt-0.5 shrink-0"/>
+                                <div className="text-[11px] text-amber-700 font-medium leading-relaxed">
+                                    <span className="font-bold">欄位說明：</span>
+                                    名稱、描述、價格、是否僅限狗狗
+                                    <div className="text-red-500 font-bold mt-1 text-[10px]">
+                                        ⚠️ ID 是儲存在資料庫的代碼，<span className="underline">請使用英文</span> (例如: local, style, other)
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* 表格標題 */}
+                            <div className="grid grid-cols-5 gap-2 text-[10px] font-black text-gray-400 px-1">
+                                <div className="flex items-center gap-1">
+                                    ID
+                                    <span className="text-[8px] font-normal text-blue-500 bg-blue-50 px-1 py-0.5 rounded">資料庫代碼</span>
+                                </div>
+                                <div>名稱</div>
+                                <div>描述</div>
+                                <div>價格</div>
+                                <div>僅限狗狗</div>
+                            </div>
+
+                            {/* 表格內容 */}
+                            {priceData.extras.map((item, index) => (
+                                <div key={index} className="grid grid-cols-5 gap-2 items-center bg-[#FAF8F5] p-2 rounded-xl border border-[#DDD6CE]">
+                                    <input 
+                                        type="text" 
+                                        placeholder="請用英文" 
+                                        value={item.id || ''}
+                                        onChange={e => updateExtra(index, 'id', e.target.value)}
+                                        className="admin-input text-xs col-span-1"
+                                    />
+                                    <input 
+                                        type="text" 
+                                        placeholder="局部修飾" 
+                                        value={item.name || ''}
+                                        onChange={e => updateExtra(index, 'name', e.target.value)}
+                                        className="admin-input text-xs col-span-1"
+                                    />
+                                    <input 
+                                        type="text" 
+                                        placeholder="貴賓臉/腳" 
+                                        value={item.desc || ''}
+                                        onChange={e => updateExtra(index, 'desc', e.target.value)}
+                                        className="admin-input text-xs col-span-1"
+                                    />
+                                    <input 
+                                        type="text" 
+                                        placeholder="$150 / $300" 
+                                        value={item.price || ''}
+                                        onChange={e => updateExtra(index, 'price', e.target.value)}
+                                        className="admin-input text-xs col-span-1"
+                                    />
+                                    <div className="flex items-center gap-1 col-span-1">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={item.forDogOnly || false}
+                                            onChange={e => updateExtra(index, 'forDogOnly', e.target.checked)}
+                                            className="w-4 h-4 accent-[#203B2A] cursor-pointer"
+                                        />
+                                        <button onClick={() => deleteExtra(index)} 
+                                            className="text-red-400 hover:text-red-600 p-1 rounded-full hover:bg-red-50 transition-all ml-auto"
+                                            title="刪除">
+                                            <Icon name="x" size={14}/>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+
+                            <button onClick={addExtra} 
+                                className="w-full py-3 border-2 border-dashed border-[#B8A088]/30 rounded-xl text-[#B8A088] font-bold text-sm hover:bg-[#FAF8F5] transition-all flex items-center justify-center gap-2">
+                                <Icon name="plus" size={16}/> 新增額外項目
+                            </button>
+                        </div>
+                    )}
+
+                    {/* ========== 住宿價目表圖片管理 ========== */}
+                    {activeCategory === 'boarding_images' && (
+                        <BoardingPriceImageManager />
+                    )}
+
+                    {/* 即時預覽 - 顯示前台風格的價目表 */}
+                    <div className="border-t border-[#DDD6CE] pt-4 mt-4">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Icon name="eye" size={16} className="text-soosi-wood"/>
+                            <span className="font-bold text-sm text-soosi-dark">📱 前台即時預覽</span>
+                            <span className="text-[10px] text-gray-400">編輯時同步更新</span>
+                        </div>
+                        
+                        <div className="bg-[#F9F7F2] p-4 rounded-xl border border-gray-200 max-h-[400px] overflow-y-auto">
+                            {activeCategory === 'dogs' && (
+                                <div className="space-y-3">
+                                    {priceData.dogs.map((item, idx) => (
+                                        <div key={idx} className="bg-white rounded-xl p-3 shadow-sm border border-soosi-wood/5">
+                                            <div className="bg-soosi-green/10 text-soosi-green font-black px-2 py-0.5 rounded-lg text-[10px] w-fit mb-2">{item.weight || '(未設定體重)'}</div>
+                                            <div className="space-y-1 mb-2 text-[11px]">
+                                                <div className="flex gap-2"><span className="font-bold text-soosi-wood shrink-0">短毛：</span><span className="text-gray-500">{item.typeA || '-'}</span></div>
+                                                <div className="flex gap-2"><span className="font-bold text-soosi-wood shrink-0">長毛：</span><span className="text-gray-500">{item.typeB || '-'}</span></div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-dashed">
+                                                <div className="text-center">
+                                                    <div className="text-[10px] font-bold text-black">小美容</div>
+                                                    <div className="font-mono font-black text-soosi-wood">${item.small || '-'}</div>
+                                                </div>
+                                                <div className="text-center border-l border-gray-100">
+                                                    <div className="text-[10px] font-bold text-black">大美容</div>
+                                                    <div className="font-mono font-black text-soosi-green">${item.full || '-'}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {priceData.dogs.length === 0 && (
+                                        <div className="text-center text-gray-400 text-sm py-4">尚無狗狗價目資料</div>
+                                    )}
+                                </div>
+                            )}
+
+                            {activeCategory === 'cats' && (
+                                <div className="space-y-3">
+                                    {priceData.cats.map((item, idx) => (
+                                        <div key={idx} className="bg-white rounded-xl p-3 shadow-sm border border-soosi-wood/5">
+                                            <div className="flex justify-between items-baseline mb-2">
+                                                <span className="font-bold text-soosi-dark text-sm">{item.type || '(未設定類型)'}</span>
+                                                <span className="text-[9px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">{item.sub || '-'}</span>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="text-center">
+                                                    <div className="text-[10px] font-bold text-black">小美容</div>
+                                                    <div className="font-mono font-black text-soosi-wood">${item.small || '-'}</div>
+                                                </div>
+                                                <div className="text-center border-l border-gray-100">
+                                                    <div className="text-[10px] font-bold text-black">大美容</div>
+                                                    <div className="font-mono font-black text-soosi-green">${item.full || '-'}</div>
+                                                </div>
+                                            </div>
+                                            {item.note && <div className="mt-1 text-[9px] text-red-400 font-bold text-right">{item.note}</div>}
+                                        </div>
+                                    ))}
+                                    {priceData.cats.length === 0 && (
+                                        <div className="text-center text-gray-400 text-sm py-4">尚無貓咪價目資料</div>
+                                    )}
+                                </div>
+                            )}
+
+                            {activeCategory === 'extras' && (
+                                <div className="space-y-2">
+                                    {priceData.extras.map((item, idx) => (
+                                        <div key={idx} className="flex justify-between items-center py-2 border-b border-dashed border-gray-100 last:border-0 bg-white px-3 rounded-lg">
+                                            <div>
+                                                <div className="font-bold text-soosi-dark text-sm">{item.name || '(未設定名稱)'}</div>
+                                                <div className="text-[10px] text-gray-400">{item.desc || '-'}</div>
+                                            </div>
+                                            <div className="text-soosi-wood font-mono font-bold text-sm">{item.price || '-'}</div>
+                                        </div>
+                                    ))}
+                                    {priceData.extras.length === 0 && (
+                                        <div className="text-center text-gray-400 text-sm py-4">尚無額外項目</div>
+                                    )}
+                                </div>
+                            )}
+
+                            {activeCategory === 'boarding_images' && (
+                                <div className="space-y-3">
+                                    {boardingImagesLoading ? (
+                                        <div className="text-center text-gray-400 text-sm py-4">載入中...</div>
+                                    ) : boardingImages.filter(img => img.is_active).length > 0 ? (
+                                        boardingImages.filter(img => img.is_active).map((img, idx) => (
+                                            <div key={idx} className="bg-white rounded-xl p-3 shadow-sm border border-soosi-wood/5">
+                                                <div className="text-center text-xs font-bold text-gray-400 mb-2">- {img.title} -</div>
+                                                <img 
+                                                    src={img.public_url} 
+                                                    alt={img.title} 
+                                                    className="w-full h-auto rounded-lg" 
+                                                    onError={(e) => { 
+                                                        e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="200"%3E%3Crect width="400" height="200" fill="%23f3f4f6"/%3E%3Ctext x="200" y="110" font-family="sans-serif" font-size="16" fill="%239ca3af" text-anchor="middle"%3E圖片載入失敗%3C/text%3E%3C/svg%3E';
+                                                    }}
+                                                />
+                                                <div className="text-[10px] text-gray-400 text-center mt-1">
+                                                    排序：{img.display_order || 0} 
+                                                    {img.is_active && <span className="text-green-500 ml-2">✅ 啟用中</span>}
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="text-center text-gray-400 text-sm py-4">尚無啟用中的住宿價目表圖片</div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* 底部提示 */}
+                    <div className="border-t border-[#DDD6CE] pt-4 flex justify-between items-center text-[10px] text-gray-400">
+                        <span>💡 修改後記得點擊「儲存變更」才會生效</span>
+                        <span>共 {priceData.dogs.length + priceData.cats.length + priceData.extras.length} 個項目</span>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 住宿價目表圖片管理組件 (支援多張圖片 + 自訂標題 + 拖曳排序) ---
+        const BoardingPriceImageManager = () => {
+            const [images, setImages] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const [uploading, setUploading] = useState(false);
+            const [editingId, setEditingId] = useState(null);
+            const [editTitle, setEditTitle] = useState('');
+            const [editOrder, setEditOrder] = useState(0);
+            const [isDragging, setIsDragging] = useState(false);
+            
+            // Toast 通知
+            const [toast, setToast] = useState(null);
+            const showToast = (message, type = 'success') => {
+                setToast({ message, type });
+                setTimeout(() => setToast(null), 3000);
+            };
+            
+            // 新增圖片表單
+            const [newTitle, setNewTitle] = useState('');
+            const [newType, setNewType] = useState('dog');
+            const [newFile, setNewFile] = useState(null);
+            const [previewUrl, setPreviewUrl] = useState(null);
+
+            // 載入所有圖片
+            const loadImages = async () => {
+                setLoading(true);
+                try {
+                    const { data, error } = await supabaseClient
+                        .from('boarding_price_images')
+                        .select('*')
+                        .order('display_order', { ascending: true });
+                    
+                    if (error) throw error;
+                    setImages(data || []);
+                } catch (error) {
+                    console.error('載入圖片失敗:', error);
+                    alert('載入圖片失敗：' + error.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            useEffect(() => {
+                loadImages();
+            }, []);
+
+            // 預覽圖片
+            useEffect(() => {
+                if (!newFile) {
+                    setPreviewUrl(null);
+                    return;
+                }
+                const url = URL.createObjectURL(newFile);
+                setPreviewUrl(url);
+                return () => URL.revokeObjectURL(url);
+            }, [newFile]);
+
+            // 上傳新圖片
+            const handleUpload = async () => {
+                if (!newFile) {
+                    alert('請先選擇圖片檔案');
+                    return;
+                }
+                if (!newTitle.trim()) {
+                    alert('請輸入標題');
+                    return;
+                }
+                
+                setUploading(true);
+                try {
+                    // 1. 上傳圖片到 Storage
+                    const timestamp = Date.now();
+                    const fileExt = newFile.name.split('.').pop();
+                    const filePath = `prices/${newType}_${timestamp}.${fileExt}`;
+                    
+                    const { data: uploadData, error: uploadError } = await supabaseClient.storage
+                        .from('boarding_prices')
+                        .upload(filePath, newFile);
+                    
+                    if (uploadError) throw uploadError;
+                    
+                    // 2. 取得公開 URL
+                    const { data: { publicUrl } } = supabaseClient.storage
+                        .from('boarding_prices')
+                        .getPublicUrl(filePath);
+                    
+                    // 3. 記錄到資料表
+                    const maxOrder = images.reduce((max, img) => Math.max(max, img.display_order || 0), 0);
+                    
+                    const { data: insertData, error: insertError } = await supabaseClient
+                        .from('boarding_price_images')
+                        .insert({
+                            title: newTitle.trim(),
+                            image_type: newType,
+                            file_path: filePath,
+                            public_url: publicUrl,
+                            display_order: maxOrder + 1,
+                            is_active: true
+                        })
+                        .select()
+                        .single();
+                    
+                    if (insertError) throw insertError;
+                    
+                    alert('✅ 圖片新增成功！');
+                    setNewTitle('');
+                    setNewFile(null);
+                    setPreviewUrl(null);
+                    setNewType('dog');
+                    document.getElementById('new_image_file').value = '';
+                    await loadImages();
+                    
+                } catch (error) {
+                    console.error('上傳失敗:', error);
+                    alert('上傳失敗：' + error.message);
+                } finally {
+                    setUploading(false);
+                }
+            };
+
+            // 刪除圖片
+            const handleDelete = async (id) => {
+                if (!confirm('確定要刪除這張圖片嗎？')) return;
+                
+                try {
+                    const { error } = await supabaseClient
+                        .from('boarding_price_images')
+                        .delete()
+                        .eq('id', id);
+                    
+                    if (error) throw error;
+                    
+                    alert('✅ 圖片已刪除');
+                    await loadImages();
+                } catch (error) {
+                    console.error('刪除失敗:', error);
+                    alert('刪除失敗：' + error.message);
+                }
+            };
+
+            // 切換啟用狀態
+            const handleToggleActive = async (id, currentActive) => {
+                try {
+                    const { error } = await supabaseClient
+                        .from('boarding_price_images')
+                        .update({ is_active: !currentActive })
+                        .eq('id', id);
+                    
+                    if (error) throw error;
+                    
+                    await loadImages();
+                } catch (error) {
+                    console.error('切換狀態失敗:', error);
+                    alert('切換狀態失敗：' + error.message);
+                }
+            };
+
+            // 更新標題
+            const handleUpdateTitle = async (id, value) => {
+                if (!value.trim()) {
+                    alert('標題不能為空');
+                    return;
+                }
+                try {
+                    const { error } = await supabaseClient
+                        .from('boarding_price_images')
+                        .update({ title: value.trim() })
+                        .eq('id', id);
+                    
+                    if (error) throw error;
+                    
+                    setImages(prev => prev.map(img => 
+                        img.id === id ? { ...img, title: value.trim() } : img
+                    ));
+                    setEditingId(null);
+                } catch (error) {
+                    console.error('更新失敗:', error);
+                    alert('更新失敗：' + error.message);
+                }
+            };
+
+            // 更新排序（直接從輸入框）
+            const handleOrderChange = async (id, value) => {
+                const numValue = parseInt(value) || 0;
+                try {
+                    const { error } = await supabaseClient
+                        .from('boarding_price_images')
+                        .update({ display_order: numValue })
+                        .eq('id', id);
+                    
+                    if (error) throw error;
+                    
+                    setImages(prev => prev.map(img => 
+                        img.id === id ? { ...img, display_order: numValue } : img
+                    ).sort((a, b) => (a.display_order || 0) - (b.display_order || 0)));
+                } catch (error) {
+                    console.error('更新排序失敗:', error);
+                    alert('更新排序失敗：' + error.message);
+                }
+            };
+
+            // 開始編輯標題
+            const startEdit = (image) => {
+                setEditingId(image.id);
+                setEditTitle(image.title);
+            };
+
+            // 取消編輯
+            const cancelEdit = () => {
+                setEditingId(null);
+                setEditTitle('');
+            };
+
+            // ========== 拖曳排序功能 ==========
+            const handleDragStart = (e, index) => {
+                setIsDragging(true);
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', index.toString());
+                // 添加拖曳時的視覺效果
+                e.target.classList.add('opacity-50');
+            };
+
+            const handleDragEnd = (e) => {
+                setIsDragging(false);
+                e.target.classList.remove('opacity-50');
+                document.querySelectorAll('.drag-item').forEach(el => {
+                    el.classList.remove('border-soosi-green', 'bg-soosi-green/5');
+                });
+            };
+
+            const handleDragOver = (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+            };
+
+            const handleDrop = async (e, dropIndex) => {
+                e.preventDefault();
+                setIsDragging(false);
+                
+                const dragIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                if (dragIndex === dropIndex) return;
+                
+                // 重新排序
+                const newImages = [...images];
+                const [draggedItem] = newImages.splice(dragIndex, 1);
+                newImages.splice(dropIndex, 0, draggedItem);
+                
+                // 更新 display_order
+                const updatedImages = newImages.map((img, idx) => ({
+                    ...img,
+                    display_order: idx
+                }));
+                
+                // 更新 UI（樂觀更新）
+                setImages(updatedImages);
+                
+                // 批次更新到資料庫
+                try {
+                    for (const img of updatedImages) {
+                        await supabaseClient
+                            .from('boarding_price_images')
+                            .update({ display_order: img.display_order })
+                            .eq('id', img.id);
+                    }
+                } catch (error) {
+                    console.error('批次更新排序失敗:', error);
+                    alert('更新排序失敗，請稍後再試');
+                    await loadImages(); // 重新載入恢復原始排序
+                }
+            };
+
+            // 計算啟用圖片數量
+            const activeCount = images.filter(img => img.is_active).length;
+
+            return (
+                <div className="space-y-6">
+                    {/* Toast 通知 */}
+                    {toast && (
+                        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl shadow-lg font-bold text-sm transition-all ${
+                            toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+                        }`}>
+                            {toast.message}
+                        </div>
+                    )}
+                    {/* 新增圖片表單 - 優化版 */}
+                    <div className="bg-gradient-to-r from-soosi-green/5 to-soosi-green/10 p-5 rounded-xl border-2 border-soosi-green/20 space-y-4">
+                        <div className="flex items-center gap-2 border-b border-soosi-green/10 pb-3">
+                            <div className="w-8 h-8 bg-soosi-green rounded-full flex items-center justify-center text-white">
+                                <Icon name="plus-circle" size={18}/>
+                            </div>
+                            <h4 className="font-bold text-soosi-dark text-base">新增住宿價目表圖片</h4>
+                            <span className="text-[10px] text-gray-400 ml-2">上傳後可在下方管理</span>
+                        </div>
+                        
+                        <div className="grid md:grid-cols-12 gap-3 items-end">
+                            {/* 標題輸入 */}
+                            <div className="md:col-span-3">
+                                <label className="text-[10px] font-bold text-gray-400 block mb-1">標題名稱</label>
+                                <input 
+                                    type="text"
+                                    placeholder="例如：過年方案"
+                                    value={newTitle}
+                                    onChange={(e) => setNewTitle(e.target.value)}
+                                    className="w-full cute-input px-3 py-2.5 text-sm bg-white"
+                                />
+                            </div>
+                            
+                            {/* 分類選擇 */}
+                            <div className="md:col-span-2">
+                                <label className="text-[10px] font-bold text-gray-400 block mb-1">圖片分類</label>
+                                <select 
+                                    value={newType} 
+                                    onChange={(e) => setNewType(e.target.value)}
+                                    className="w-full cute-input px-3 py-2.5 text-sm bg-white appearance-none"
+                                >
+                                    <option value="dog">🐶 狗狗</option>
+                                    <option value="cat">🐱 貓咪</option>
+                                    <option value="other">📄 其他</option>
+                                </select>
+                            </div>
+                            
+                            {/* 檔案上傳 */}
+                            <div className="md:col-span-4">
+                                <label className="text-[10px] font-bold text-gray-400 block mb-1">選擇圖片檔案</label>
+                                <div className="relative">
+                                    <input 
+                                        id="new_image_file"
+                                        type="file" 
+                                        accept="image/*"
+                                        onChange={(e) => {
+                                            if (e.target.files[0]) {
+                                                setNewFile(e.target.files[0]);
+                                            }
+                                        }}
+                                        className="block w-full text-xs text-gray-500 
+                                            file:mr-3 file:py-2 file:px-4 
+                                            file:rounded-xl file:border-0 
+                                            file:text-xs file:font-bold 
+                                            file:bg-soosi-green/10 file:text-soosi-green 
+                                            hover:file:bg-soosi-green/20 
+                                            transition-all cursor-pointer
+                                            bg-white rounded-xl border-2 border-gray-200 py-1.5 px-2
+                                            focus:border-soosi-green/50 outline-none"
+                                    />
+                                    {newFile && (
+                                        <div className="absolute right-2 top-1/2 -translate-y-1/2 bg-green-100 text-green-600 text-[9px] font-bold px-2 py-0.5 rounded-full">
+                                            ✅ 已選
+                                        </div>
+                                    )}
+                                </div>
+                                {previewUrl && (
+                                    <div className="mt-2 flex items-center gap-3 bg-white p-2 rounded-lg border border-gray-200">
+                                        <img src={previewUrl} alt="預覽" className="h-12 w-12 object-cover rounded-lg border border-gray-100" />
+                                        <span className="text-[10px] text-gray-400 truncate flex-1">{newFile?.name}</span>
+                                        <button 
+                                            onClick={() => { setNewFile(null); setPreviewUrl(null); document.getElementById('new_image_file').value = ''; }}
+                                            className="text-red-400 hover:text-red-600 text-xs font-bold"
+                                        >
+                                            移除
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                            
+                            {/* 上傳按鈕 */}
+                            <div className="md:col-span-3">
+                                <button 
+                                    onClick={handleUpload} 
+                                    disabled={uploading || !newFile}
+                                    className={`w-full py-2.5 rounded-xl text-sm font-bold shadow-md transition-all flex items-center justify-center gap-2 ${
+                                        uploading || !newFile
+                                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none' 
+                                            : 'bg-soosi-green text-white hover:bg-[#5a7a63] active:scale-95 shadow-soosi-green/30'
+                                    }`}
+                                >
+                                    {uploading ? (
+                                        <>
+                                            <Icon name="loader-2" className="animate-spin" size={16}/>
+                                            上傳中...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Icon name="upload" size={16}/>
+                                            上傳圖片
+                                        </>
+                                    )}
+                                </button>
+                                {!newFile && !uploading && (
+                                    <p className="text-[9px] text-gray-300 text-center mt-1">請先選擇圖片檔案</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 圖片列表 - 支援拖曳排序 */}
+                    {loading ? (
+                        <div className="text-center py-8 text-gray-400 text-sm">載入中...</div>
+                    ) : images.length === 0 ? (
+                        <div className="bg-gray-50 rounded-lg p-12 text-center text-gray-400 text-sm">
+                            <Icon name="image" size={48} className="mx-auto mb-3 opacity-30"/>
+                            尚無任何住宿價目表圖片，請在上方新增
+                        </div>
+                    ) : (
+                        <>
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-xs font-bold text-gray-400">
+                                    共 {images.length} 張圖片，啟用中 {activeCount} 張
+                                </span>
+                                <span className="text-[10px] text-soosi-wood">💡 拖曳圖片可調整排序</span>
+                            </div>
+                            <div className="space-y-2">
+                                {images.map((img, index) => (
+                                    <div 
+                                        key={img.id} 
+                                        draggable={!editingId}
+                                        onDragStart={(e) => handleDragStart(e, index)}
+                                        onDragEnd={handleDragEnd}
+                                        onDragOver={handleDragOver}
+                                        onDrop={(e) => handleDrop(e, index)}
+                                        className={`drag-item bg-white p-3 rounded-xl border-2 transition-all cursor-grab active:cursor-grabbing ${
+                                            img.is_active ? 'border-soosi-green/30' : 'border-gray-200 opacity-60'
+                                        } ${isDragging ? 'hover:border-soosi-green hover:bg-soosi-green/5' : ''}`}
+                                    >
+                                        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                                            {/* 拖曳手柄 */}
+                                            <div className="text-gray-300 shrink-0 select-none text-sm px-1">
+                                                <Icon name="grip-vertical" size={16} className={editingId ? 'opacity-30' : ''} />
+                                            </div>
+                                            
+                                            {/* 縮圖 */}
+                                            <div className="w-16 h-16 shrink-0 bg-gray-50 rounded-lg border border-gray-100 overflow-hidden flex items-center justify-center">
+                                                <img 
+                                                    src={img.public_url} 
+                                                    alt={img.title} 
+                                                    className="w-full h-full object-contain"
+                                                    onError={(e) => { 
+                                                        e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="64" height="64"%3E%3Crect width="64" height="64" fill="%23f3f4f6"/%3E%3Ctext x="32" y="36" font-family="sans-serif" font-size="10" fill="%239ca3af" text-anchor="middle"%3E無圖%3C/text%3E%3C/svg%3E';
+                                                    }}
+                                                />
+                                            </div>
+                                            
+                                            {/* 資訊 */}
+                                            <div className="flex-1 min-w-0 space-y-1">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    {editingId === img.id ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <input 
+                                                                type="text" 
+                                                                value={editTitle} 
+                                                                onChange={(e) => setEditTitle(e.target.value)}
+                                                                className="cute-input px-2 py-1 text-sm font-bold min-w-[120px]"
+                                                                autoFocus
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter') handleUpdateTitle(img.id, editTitle);
+                                                                    if (e.key === 'Escape') cancelEdit();
+                                                                }}
+                                                            />
+                                                            <button 
+                                                                onClick={() => handleUpdateTitle(img.id, editTitle)}
+                                                                className="px-2 py-1 bg-soosi-green text-white rounded-lg text-xs font-bold"
+                                                            >
+                                                                儲存
+                                                            </button>
+                                                            <button 
+                                                                onClick={cancelEdit}
+                                                                className="px-2 py-1 bg-gray-100 text-gray-500 rounded-lg text-xs font-bold"
+                                                            >
+                                                                取消
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            <span className="font-bold text-soosi-dark text-sm truncate">{img.title}</span>
+                                                            <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold shrink-0 ${
+                                                                img.image_type === 'dog' ? 'bg-blue-100 text-blue-600' :
+                                                                img.image_type === 'cat' ? 'bg-purple-100 text-purple-600' :
+                                                                'bg-gray-100 text-gray-600'
+                                                            }`}>
+                                                                {img.image_type === 'dog' ? '🐶 狗狗' :
+                                                                 img.image_type === 'cat' ? '🐱 貓咪' : '📄 其他'}
+                                                            </span>
+                                                            {img.is_active ? (
+                                                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-green-100 text-green-600 font-bold shrink-0">✅ 啟用</span>
+                                                            ) : (
+                                                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-400 font-bold shrink-0">⛔ 停用</span>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-3 text-xs text-gray-400">
+                                                    <span>排序：</span>
+                                                    <input 
+                                                        type="number" 
+                                                        min="0"
+                                                        value={img.display_order || 0} 
+                                                        onChange={(e) => handleOrderChange(img.id, e.target.value)}
+                                                        className="w-12 cute-input px-1 py-0.5 text-center text-xs"
+                                                    />
+                                                    <span>ID: {String(img.id).slice(-6)}</span>
+                                                    <span className="hidden sm:inline">上傳：{new Date(img.created_at).toLocaleDateString()}</span>
+                                                </div>
+                                            </div>
+                                            
+                                        {/* 操作按鈕 - 中文化 */}
+                                        <div className="flex gap-1.5 shrink-0 flex-wrap">
+                                            {editingId !== img.id && (
+                                                <button 
+                                                    onClick={() => startEdit(img)}
+                                                    className="px-2.5 py-1.5 bg-soosi-wood/10 text-soosi-wood rounded-lg hover:bg-soosi-wood/20 transition-all text-[10px] font-bold flex items-center gap-1"
+                                                    title="編輯標題"
+                                                >
+                                                    <Icon name="edit-2" size={12}/>
+                                                    編輯
+                                                </button>
+                                            )}
+                                            <button 
+                                                onClick={() => handleToggleActive(img.id, img.is_active)}
+                                                className={`px-2.5 py-1.5 rounded-lg transition-all text-[10px] font-bold flex items-center gap-1 ${
+                                                    img.is_active 
+                                                        ? 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100' 
+                                                        : 'bg-green-50 text-green-600 hover:bg-green-100'
+                                                }`}
+                                                title={img.is_active ? '停用' : '啟用'}
+                                            >
+                                                <Icon name={img.is_active ? "eye-off" : "eye"} size={12}/>
+                                                {img.is_active ? '停用' : '啟用'}
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDelete(img.id)}
+                                                className="px-2.5 py-1.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition-all text-[10px] font-bold flex items-center gap-1"
+                                                title="刪除"
+                                            >
+                                                <Icon name="trash-2" size={12}/>
+                                                刪除
+                                            </button>
+                                        </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                    
+                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 flex items-start gap-2">
+                        <Icon name="info" size={16} className="text-blue-500 mt-0.5 shrink-0"/>
+                        <div className="text-[11px] text-blue-700 font-medium leading-relaxed">
+                            <span className="font-bold">操作說明：</span>
+                            <span className="block mt-1">📌 拖曳圖片左側的 <Icon name="grip-vertical" size={12} className="inline"/> 手柄可調整排序</span>
+                            <span className="block">📌 點擊 <Icon name="eye" size={12} className="inline"/> 可切換啟用/停用狀態</span>
+                            <span className="block text-red-500 font-bold">📌 前台只會顯示「啟用中」的圖片，依排序由小到大排列</span>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+                
+
+        // --- Main Dashboard ---
         const Dashboard = ({ user }) => {
             const [showPwdModal, setShowPwdModal] = useState(false);
-const [activeTab, setActiveTab] = useState('grooming');
+            const [activeTab, setActiveTab] = useState('grooming');
             const [busySlots, setBusySlots] = useState([]); // 存放已關閉時段
             const [orders, setOrders] = useState([]);
             const [loading, setLoading] = useState(true);
@@ -1674,18 +2948,49 @@ const sortedFilteredOrders = useMemo(() => {
                     <nav className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-soosi-green/10 px-6 py-4 flex justify-between items-center shadow-sm">
                         <div className="flex items-center gap-3">
                             <img src="nav.png" className="w-10 h-10 object-contain" />
-                            <span className="font-black text-soosi-dark text-xl tracking-tight">Soosi Admin</span>
+                            <span className="font-black text-soosi-dark text-xl tracking-tight">Soosi 後台管理</span>
                         </div>
                         
-                        <div className="flex items-center gap-2"><a href="https://resend.com/emails" target="_blank" className="w-10 h-10 bg-white border-2 border-gray-100 rounded-full flex items-center justify-center text-blue-500 hover:border-blue-500 hover:bg-blue-50 transition-all shadow-sm" title="前往 Resend 查看額度">
-    <Icon name="mail" size={16}/>
-</a>
+                        <div className="flex items-center gap-2">
+                            {/* Resend 郵件按鈕 */}
+                            <a href="https://resend.com/emails" target="_blank" 
+                                className="w-10 h-10 bg-white border-2 border-gray-100 rounded-full flex items-center justify-center text-blue-500 hover:border-blue-500 hover:bg-blue-50 transition-all shadow-sm" 
+                                title="前往 Resend 查看額度">
+                                <Icon name="mail" size={16}/>
+                            </a>
+                            
+                            {/* 價目表管理按鈕 - 僅管理員可見 */}
                             {user?.email === ADMIN_EMAIL && (
-                                <button onClick={() => setShowPwdModal(true)} className="w-10 h-10 bg-white border-2 border-gray-100 rounded-full flex items-center justify-center text-soosi-wood hover:border-soosi-wood hover:bg-soosi-wood hover:text-white transition-all shadow-sm" title="管理員權限：修改密碼">
+                                <button 
+                                    onClick={() => setActiveTab(prev => prev === 'price' ? 'grooming' : 'price')} 
+                                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-sm border-2 ${
+                                        activeTab === 'price' 
+                                            ? 'bg-soosi-wood text-white border-soosi-wood' 
+                                            : 'bg-white border-gray-100 text-gray-400 hover:border-soosi-wood hover:text-soosi-wood'
+                                    }`} 
+                                    title="價目表管理"
+                                >
+                                    <Icon name="dollar-sign" size={16}/>
+                                </button>
+                            )}
+                            
+                            {/* 修改密碼按鈕 - 僅管理員可見 */}
+                            {user?.email === ADMIN_EMAIL && (
+                                <button 
+                                    onClick={() => setShowPwdModal(true)} 
+                                    className="w-10 h-10 bg-white border-2 border-gray-100 rounded-full flex items-center justify-center text-soosi-wood hover:border-soosi-wood hover:bg-soosi-wood hover:text-white transition-all shadow-sm" 
+                                    title="管理員權限：修改密碼"
+                                >
                                     <Icon name="key" size={16}/>
                                 </button>
                             )}
-                            <button onClick={() => supabaseClient.auth.signOut()} className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-soosi-red transition-all" title="登出">
+                            
+                            {/* 登出按鈕 */}
+                            <button 
+                                onClick={() => supabaseClient.auth.signOut()} 
+                                className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-soosi-red transition-all" 
+                                title="登出"
+                            >
                                 <Icon name="log-out" size={18}/>
                             </button>
                         </div>
@@ -1802,6 +3107,9 @@ const sortedFilteredOrders = useMemo(() => {
                                 </div>
                                 <p className="text-[10px] text-gray-400 font-bold text-center">※ 點擊按鈕可手動關閉該時段，前台預約頁面將同步隱藏該選項。</p>
                             </div>
+                        ) : activeTab === 'price' ? (
+                            // --- 5. 價目表管理介面 ---
+                            <PriceManager />
                         ) : (
                             // --- 3. 一般訂單列表 (美容/住宿) - 已包含標籤偵測 ---
                             <div className="space-y-4">
@@ -1961,27 +3269,65 @@ const hasFullGrooming = order.service_type === 'grooming' && (
                 </div>
             );
         };
-// 🌟 新增：更新通知組件 (置頂避開劉海版)
-        const UpdatePrompt = ({ show, onUpdate }) => {
+// 🌟 新增：更新通知組件 (置頂避開劉海版) - 移到 App 外部
+        const UpdatePrompt = ({ show, onUpdate, onDismiss, isUpdating }) => {
             if (!show) return null;
+            
             return (
                 <div className="fixed left-6 right-6 z-[400] md:left-1/2 md:-translate-x-1/2 md:w-auto md:min-w-[320px] top-[calc(env(safe-area-inset-top)+1.5rem)]">
-                    <div className="bg-white p-4 rounded-2xl shadow-2xl border-2 border-soosi-green flex items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-500">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-soosi-green text-white rounded-full flex items-center justify-center shrink-0 animate-spin">
-                                <Icon name="refresh-cw" size={20} />
+                    <div className={`bg-white p-4 rounded-2xl shadow-2xl border-2 border-soosi-green animate-in slide-in-from-top-4 duration-500 transition-all ${isUpdating ? 'opacity-75' : ''}`}>
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <div className={`w-10 h-10 bg-soosi-green text-white rounded-full flex items-center justify-center shrink-0 transition-all duration-300 ${isUpdating ? 'animate-spin' : ''}`}>
+                                    <Icon name={isUpdating ? "loader-2" : "refresh-cw"} size={20} />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <h4 className="font-black text-soosi-dark text-sm truncate">
+                                        {isUpdating ? '正在更新中...' : '發現新版本！'}
+                                    </h4>
+                                    <p className={`text-[10px] font-bold transition-all duration-300 truncate ${isUpdating ? 'text-soosi-wood animate-pulse' : 'text-gray-400'}`}>
+                                        {isUpdating ? '請稍候，即將重新整理...' : 'Admin 系統已更新 ✨'}
+                                    </p>
+                                </div>
                             </div>
-                            <div>
-                                <h4 className="font-black text-soosi-dark text-sm">發現新版本！</h4>
-                                <p className="text-[10px] text-gray-400 font-bold">Admin 系統已更新 ✨</p>
-                            </div>
-                        </div>
+                            
+                    <div className="flex items-center gap-2 shrink-0">
+                        {/* 暫不更新按鈕 - 僅在非更新狀態顯示 */}
+                        {!isUpdating && (
+                            <button 
+                                onClick={onDismiss}
+                                className="text-gray-400 hover:text-gray-600 text-[11px] font-bold px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-all whitespace-nowrap border border-transparent hover:border-gray-200"
+                                title="暫不更新，下次再說"
+                            >
+                                暫不更新
+                            </button>
+                        )}
+                        
+                        {/* 主要更新按鈕 */}
                         <button 
                             onClick={onUpdate}
-                            className="bg-soosi-green text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg shadow-soosi-green/20 hover:bg-[#5a7a63] active:scale-95 transition-all whitespace-nowrap"
+                            disabled={isUpdating}
+                            className={`relative overflow-hidden bg-soosi-green text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg shadow-soosi-green/20 hover:bg-[#5a7a63] transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                                isUpdating 
+                                    ? 'opacity-70 cursor-default scale-95' 
+                                    : 'active:scale-95 hover:scale-105 hover:shadow-xl'
+                            }`}
                         >
-                            立即更新
+                            {/* 點擊波紋效果 - 僅在非更新狀態顯示 */}
+                            {!isUpdating && (
+                                <span className="absolute inset-0 rounded-xl bg-white/20 opacity-0 hover:opacity-100 transition-opacity duration-300"></span>
+                            )}
+                            
+                            {isUpdating ? (
+                                <>
+                                    <Icon name="loader-2" size={14} className="animate-spin" />
+                                    更新中...
+                                </>
+                            ) : (
+                                '立即更新'
+                            )}
                         </button>
+                    </div>                        </div>
                     </div>
                 </div>
             );
@@ -1990,7 +3336,14 @@ const App = () => {
             const [session, setSession] = useState(null);
             // 🌟 新增：更新提示狀態
             const [showUpdate, setShowUpdate] = useState(false);
+            const [isUpdatingSW, setIsUpdatingSW] = useState(false); // 🌟 新增：更新中狀態（視覺回饋用）
             const [waitingWorker, setWaitingWorker] = useState(null); // 新增：用來儲存等待中的 Service Worker
+            const waitingWorkerRef = useRef(null); // 使用 ref 保存最新值，避免閉包問題
+
+            // 同步更新 ref
+            useEffect(() => {
+                waitingWorkerRef.current = waitingWorker;
+            }, [waitingWorker]);
 
             useEffect(() => {
                 supabaseClient.auth.getSession().then(({ data: { session } }) => setSession(session));
@@ -2002,64 +3355,151 @@ const App = () => {
                 if ('serviceWorker' in navigator) {
                     const registerSW = async () => {
                         try {
-                            const registration = await navigator.serviceWorker.register('./sw-admin.js?v=25');
+                            console.log('🔍 [SW] 開始註冊 Service Worker...');
+                            const registration = await navigator.serviceWorker.register('./sw-admin.js?v=27');
+                            console.log('✅ [SW] 註冊成功:', registration);
                             
                             const justUpdated = sessionStorage.getItem('sw_admin_just_updated') === 'true';
                             if (justUpdated) {
+                                console.log('🔍 [SW] 剛更新完畢，略過提示');
                                 sessionStorage.removeItem('sw_admin_just_updated');
                                 setShowUpdate(false);
                                 return;
                             }
 
+                            console.log('🔍 [SW] registration.waiting:', registration.waiting);
                             if (registration.waiting) {
+                                console.log('✅ [SW] 發現 waiting worker，顯示更新提示');
                                 setWaitingWorker(registration.waiting);
                                 setShowUpdate(true);
                             }
 
                             registration.addEventListener('updatefound', () => {
+                                console.log('🔍 [SW] 發現更新 (updatefound)');
                                 const newWorker = registration.installing;
                                 newWorker.addEventListener('statechange', () => {
+                                    console.log('🔍 [SW] worker statechange:', newWorker.state);
                                     if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                        console.log('✅ [SW] 新 worker 已安裝，顯示更新提示');
                                         setWaitingWorker(newWorker);
                                         setShowUpdate(true);
                                     }
                                 });
                             });
+                            
+                            // 檢查是否有正在等待的 worker
+                            navigator.serviceWorker.getRegistration().then(reg => {
+                                if (reg && reg.waiting) {
+                                    console.log('✅ [SW] 從 getRegistration 發現 waiting worker');
+                                    setWaitingWorker(reg.waiting);
+                                    setShowUpdate(true);
+                                }
+                            });
                         } catch (error) {
-                            console.error('Admin SW 註冊失敗:', error);
+                            console.error('❌ [SW] Admin SW 註冊失敗:', error);
                         }
                     };
                     registerSW();
+                } else {
+                    console.log('⚠️ [SW] 瀏覽器不支援 Service Worker');
                 }
             }, []);
 
             return (
                 <>
 {/* 顯示更新提示 */}
-<UpdatePrompt show={showUpdate} onUpdate={() => {
-                        sessionStorage.setItem('sw_admin_just_updated', 'true');
-                        
-                        // 1. 監聽控制權變更，確保新版 Service Worker 真正接管頁面後才執行刷新
-                        const onControllerChange = () => {
-                            window.location.reload();
-                            navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
-                        };
-                        navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+<UpdatePrompt 
+                            show={showUpdate} 
+                            isUpdating={isUpdatingSW}
+                            onUpdate={() => {
+                                // 設定更新中狀態（立即顯示視覺回饋）
+                                setIsUpdatingSW(true);
+                                
+                                console.log('🔍 [Update-Admin] 點擊了立即更新按鈕');
+                                console.log('🔍 [Update-Admin] waitingWorkerRef.current:', waitingWorkerRef.current);
+                                console.log('🔍 [Update-Admin] waitingWorker:', waitingWorker);
+                                
+                                sessionStorage.setItem('sw_admin_just_updated', 'true');
+                                
+                                // 清除舊的控制器變更監聽，避免重複刷新
+                                const onControllerChange = () => {
+                                    console.log('✅ [Update-Admin] Service Worker 控制權已變更，刷新頁面');
+                                    window.location.reload();
+                                };
+                                
+                                // 使用一次性監聽器
+                                const handler = () => {
+                                    onControllerChange();
+                                    navigator.serviceWorker.removeEventListener('controllerchange', handler);
+                                };
+                                navigator.serviceWorker.addEventListener('controllerchange', handler);
+                                
+                                // 設定超時保護：如果 5 秒後沒有收到 controllerchange 事件，強制刷新
+                                const timeoutId = setTimeout(() => {
+                                    console.log('⏰ [Update-Admin] 等待 SW 控制權變更逾時，強制刷新');
+                                    navigator.serviceWorker.removeEventListener('controllerchange', handler);
+                                    window.location.reload();
+                                }, 5000);
 
-                        // 2. 通知等待中的 Worker 跳過等待狀態
-                        if (waitingWorker) {
-                            waitingWorker.postMessage({ type: 'SKIP_WAITING' });
-                        } else {
-                            // 3. 安全退路：若 state 丟失，嘗試從註冊資訊中抓取
-                            navigator.serviceWorker.getRegistration().then(reg => {
-                                if (reg && reg.waiting) {
-                                    reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-                                } else {
+                                try {
+                                    // 優先使用 ref 中的最新值
+                                    const worker = waitingWorkerRef.current || waitingWorker;
+                                    console.log('🔍 [Update-Admin] 最終使用的 worker:', worker);
+                                    
+                                    if (worker) {
+                                        console.log('📤 [Update-Admin] 發送 SKIP_WAITING 訊息給 worker');
+                                        worker.postMessage({ type: 'SKIP_WAITING' });
+                                        // 發送後立即嘗試跳過等待
+                                        setTimeout(() => {
+                                            console.log('🔄 [Update-Admin] 發送後嘗試跳過等待');
+                                            worker.postMessage({ type: 'SKIP_WAITING' });
+                                        }, 500);
+                                        return;
+                                    }
+                                    
+                                    console.log('⚠️ [Update-Admin] worker 為 null，嘗試從註冊資訊獲取');
+                                    navigator.serviceWorker.getRegistration().then(reg => {
+                                        console.log('🔍 [Update-Admin] getRegistration 結果:', reg);
+                                        console.log('🔍 [Update-Admin] reg.waiting:', reg?.waiting);
+                                        console.log('🔍 [Update-Admin] reg.active:', reg?.active);
+                                        
+                                        if (reg && reg.waiting) {
+                                            console.log('📤 [Update-Admin] 從註冊資訊獲取到 waiting worker');
+                                            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                                            // 再次發送確保
+                                            setTimeout(() => {
+                                                reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                                            }, 500);
+                                        } else {
+                                            console.log('🔄 [Update-Admin] 沒有 waiting worker，直接刷新');
+                                            clearTimeout(timeoutId);
+                                            navigator.serviceWorker.removeEventListener('controllerchange', handler);
+                                            window.location.reload();
+                                        }
+                                    }).catch((err) => {
+                                        console.warn('⚠️ [Update-Admin] getRegistration 失敗:', err);
+                                        clearTimeout(timeoutId);
+                                        navigator.serviceWorker.removeEventListener('controllerchange', handler);
+                                        window.location.reload();
+                                    });
+                                } catch (err) {
+                                    console.warn('❌ [Update-Admin] SW 更新失敗，直接刷新頁面:', err);
+                                    clearTimeout(timeoutId);
+                                    navigator.serviceWorker.removeEventListener('controllerchange', handler);
                                     window.location.reload();
                                 }
-                            });
-                        }
-                    }} />
+                            }}
+                            onDismiss={() => {
+                                console.log('🔍 [Update-Admin] 使用者點擊「暫不更新」');
+                                setShowUpdate(false);
+                                // 儲存到 sessionStorage，避免短時間內再次出現
+                                sessionStorage.setItem('sw_admin_dismissed', 'true');
+                                // 設定 30 分鐘後可以再次顯示
+                                setTimeout(() => {
+                                    sessionStorage.removeItem('sw_admin_dismissed');
+                                }, 30 * 60 * 1000);
+                            }}
+                        />
                     {session ? <Dashboard user={session.user} /> : <LoginView onLogin={() => {}} />}
                 </>
             );

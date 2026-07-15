@@ -47,12 +47,52 @@
         <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
         <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
         <script>
+            // 確保 React 全域可用 - 必須在 Babel 執行前設定
+            window.React = React;
+            window.ReactDOM = ReactDOM;
+            
             // 強制使用 classic JSX，避免 Babel 產生 import 語法導致瀏覽器無法執行
-            Babel.registerPreset('soosi-react', {
-                presets: [[Babel.availablePresets.react, { runtime: 'classic' }]],
-            });
+            if (typeof Babel !== 'undefined' && Babel.registerPreset) {
+                Babel.registerPreset('soosi-react', {
+                    presets: [
+                        [Babel.availablePresets.react, { 
+                            runtime: 'classic',
+                            pragma: 'React.createElement',
+                            pragmaFrag: 'React.Fragment'
+                        }]
+                    ]
+                });
+            }
+            
+            console.log('✅ React 已載入，版本:', React.version);
         </script>
         <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+
+        <script>
+            // 🩺 診斷用：若 8 秒後畫面仍未成功渲染，明確顯示是哪個資源沒載入
+            window.addEventListener('load', function() {
+                setTimeout(function() {
+                    if (window.__soosiAppRendered) return;
+                    var missing = [];
+                    if (typeof window.React === 'undefined') missing.push('React');
+                    if (typeof window.ReactDOM === 'undefined') missing.push('ReactDOM');
+                    if (typeof window.Babel === 'undefined') missing.push('Babel (JSX 轉譯器)');
+                    if (typeof window.supabase === 'undefined') missing.push('Supabase SDK');
+                    if (typeof window.SignaturePad === 'undefined') missing.push('SignaturePad (簽名元件)');
+                    if (typeof window.__soosiScriptRan === 'undefined') missing.push('主程式腳本 (text/babel 轉譯或執行失敗)');
+                    var rootEl = document.getElementById('root');
+                    if (missing.length > 0 && rootEl) {
+                        rootEl.innerHTML =
+                            '<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;font-family:sans-serif;">' +
+                            '<div style="font-weight:900;font-size:20px;color:#8E6E53;margin-bottom:12px;">⚠️ 資源載入逾時診斷</div>' +
+                            '<div style="color:#666;font-size:14px;margin-bottom:16px;">以下項目在 8 秒內未成功載入：<br><b>' + missing.join('、') + '</b></div>' +
+                            '<div style="color:#999;font-size:12px;margin-bottom:16px;">請確認網路可存取 unpkg.com / jsdelivr.net / cdn.tailwindcss.com，或改用一般瀏覽器分頁直接開啟本頁再試一次。</div>' +
+                            '<button onclick="window.location.reload()" style="padding:12px 24px;background:#6A8D73;color:white;border:none;border-radius:12px;font-weight:bold;">重新整理</button>' +
+                            '</div>';
+                    }
+                }, 8000);
+            });
+        </script>
 
     <style>
             :root {
@@ -242,6 +282,7 @@ body.sig-lock {
 </div>
 
     <script type="text/babel" data-presets="soosi-react">
+        window.__soosiScriptRan = true;
         // 🌟 新增：將 Base64 簽名轉為 File 物件
     const dataURLtoFile = (dataurl, filename) => {
         let arr = dataurl.split(','),
@@ -434,41 +475,29 @@ const saveErrorToSupabase = async (payload) => {
   }
 };
 
-// ✅ 寄信 + 存資料表
+// ✅ 寄信 + 存資料表 (已關閉郵件通知)
 const sendErrorReport = (report, type = 'error', errorId = '') => {
   try {
-    // 1. 寄信
-    fetch(ERROR_REPORT_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        subject: `Soosi 白畫面錯誤回報 [${errorId}]`,
-        report,
-        url: location.href,
-        ua: navigator.userAgent,
-        time: new Date().toISOString(),
-        type,
-        error_id: errorId,
-        breadcrumbs: getBreadcrumbs(),
-        api_failures: getApiFailures()
-      })
-    });
+    // ⛔ 已關閉郵件寄送功能，僅在 console 顯示錯誤資訊
+    console.log('📧 [錯誤回報已關閉] 錯誤ID:', errorId);
+    console.log('📧 [錯誤內容]', report);
 
-    // 2. 存資料表
-    saveErrorToSupabase({
-      error_id: errorId,
-      type,
-      message: report.split('\n').find(r => r.includes('錯誤訊息')) || '',
-      detail: report.split('\n').find(r => r.includes('詳細內容')) || '',
-      report,
-      url: location.href,
-      ua: navigator.userAgent,
-      time: new Date().toISOString(),
-      app_version: APP_VERSION
-    });
+    // 2. 存資料表 (不等待結果，避免阻塞) - 已停用
+    // saveErrorToSupabase({
+    //   error_id: errorId,
+    //   type,
+    //   message: report.split('\n').find(r => r.includes('錯誤訊息')) || '',
+    //   detail: report.split('\n').find(r => r.includes('詳細內容')) || '',
+    //   report,
+    //   url: location.href,
+    //   ua: navigator.userAgent,
+    //   time: new Date().toISOString(),
+    //   app_version: APP_VERSION
+    // });
 
   } catch (e) {
-    console.warn("錯誤回報失敗", e);
+    // 完全靜默失敗，不影響用戶
+    console.warn("錯誤回報失敗（非關鍵錯誤）", e);
   }
 };
 
@@ -531,6 +560,9 @@ window.addEventListener('unhandledrejection', (e) => {
     'promise'
   );
 });
+
+/* ✅ 將 showFatalError 掛載到 window 上，供 ErrorBoundary 使用 */
+window.showFatalError = showFatalError;
 
 /* ✅ 測試用：你可以在 F12 Console 輸入 testWhiteScreenReport() */
 window.testWhiteScreenReport = () => {
@@ -609,27 +641,36 @@ const Icon = ({ name, size = 20, className = "" }) => {
 class ErrorBoundary extends React.Component {
     constructor(props) {
         super(props);
-        this.state = { hasError: false };
+        this.state = { hasError: false, errorMsg: '' };
     }
 
     static getDerivedStateFromError(error) {
-        return { hasError: true };
+        return { hasError: true, errorMsg: error?.message || '未知錯誤' };
     }
 
     componentDidCatch(error, info) {
         console.error("❌ React Error:", error, info);
-
-        // ✅ 這行會觸發你原本的自動寄錯誤功能
-        showFatalError(
-            error?.message || "React Error",
-            error?.stack || "",
-            "react"
-        );
+        console.error("📍 錯誤堆疊:", info?.componentStack || '無');
     }
 
     render() {
-        // ✅ 讓 showFatalError 直接接管畫面（不要再顯示手動複製版）
-        if (this.state.hasError) return null;
+        if (this.state.hasError) {
+            // 直接顯示錯誤訊息，不要依賴外部函數
+            return (
+                <div className="min-h-screen flex flex-col items-center justify-center bg-[#F9F7F2] text-center p-6">
+                    <div className="text-soosi-red font-black text-xl mb-4">⚠️ 應用程式發生錯誤</div>
+                    <div className="text-gray-600 text-sm mb-4 max-w-md bg-white p-4 rounded-xl border border-red-200 text-left overflow-auto max-h-40">
+                        <div className="font-bold text-xs text-gray-400 mb-1">錯誤訊息：</div>
+                        <div className="font-mono text-sm">{this.state.errorMsg}</div>
+                    </div>
+                    <div className="text-xs text-gray-400 mb-6">請將上方錯誤訊息提供給管理員</div>
+                    <button onClick={() => window.location.reload()} 
+                        className="px-6 py-3 bg-soosi-green text-white rounded-xl font-bold shadow-lg">
+                        重新整理
+                    </button>
+                </div>
+            );
+        }
         return this.props.children;
     }
 }
@@ -740,89 +781,31 @@ class ErrorBoundary extends React.Component {
                 );
             };
 
-    // --- 1. 定義價目表資料 (視覺優化版) ---
-            const PRICE_DATA = {
-                dogs: [
-                    { 
-                        weight: '5kg 以下', 
-                        typeA: '吉娃娃、迷你臘腸、迷你品、短毛幼犬', 
-                        typeB: '貴賓、瑪爾濟斯、約克夏、博美、西施、蝴蝶犬', 
-                        breeds: ['吉娃娃', '迷你臘腸', '迷你品', '幼犬', '貴賓', '瑪爾濟斯', '約克夏', '博美', '西施', '蝴蝶犬'],
-                        small: '500~700', full: '1000~1400' 
-                    },
-                    { 
-                        weight: '5-10kg', 
-                        typeA: '巴戈、法鬥、標準臘腸、傑克羅素、雪納瑞(短)', 
-                        typeB: '比熊、狐狸犬、西高地、北京犬、雪納瑞(長)', 
-                        breeds: ['巴戈', '法鬥', '標準臘腸', '傑克羅素', '雪納瑞', '比熊', '狐狸犬', '西高地', '北京犬'],
-                        small: '600~900', full: '1200~1800' 
-                    },
-                    { 
-                        weight: '10-20kg', 
-                        typeA: '柯基、柴犬、米格魯、台灣犬(小)、惠比特', 
-                        typeB: '喜樂蒂、邊境牧羊犬、銀狐、澳洲牧羊犬', 
-                        breeds: ['柯基', '柴犬', '米格魯', '台灣犬', '惠比特', '喜樂蒂', '邊境牧羊犬', '銀狐', '澳洲牧羊犬'],
-                        small: '1000~1800', full: '2000~3500' 
-                    },
-                    { 
-                        weight: '20-30kg', 
-                        typeA: '台灣犬(中)、高山犬、米克斯(中)', 
-                        typeB: '哈士奇、鬆獅犬、標準貴賓、古代牧羊犬', 
-                        breeds: ['高山犬', '米克斯', '哈士奇', '鬆獅犬', '標準貴賓', '古代牧羊犬'],
-                        small: '1400~2000', full: '2800~4500' 
-                    },
-                    { 
-                        weight: '30-40kg', 
-                        typeA: '拉布拉多、黃金獵犬、威瑪、杜賓、拳師', 
-                        typeB: '薩摩耶、秋田、大型鬆獅、阿富汗獵犬', 
-                        breeds: ['拉布拉多', '黃金獵犬', '威瑪', '杜賓', '拳師', '薩摩耶', '秋田', '阿富汗獵犬'],
-                        small: '1800~2200', full: '3600~5500' 
-                    },
-                    { 
-                        weight: '40kg 以上', 
-                        typeA: '大丹、羅威納、藏獒、大型獒犬', 
-                        typeB: '阿拉斯加、大白熊、聖伯納、伯恩山', 
-                        breeds: ['大丹', '羅威納', '藏獒', '大型獒犬', '阿拉斯加', '大白熊', '聖伯納', '伯恩山'],
-                        small: '2000~2400', full: '4000~6500' 
-                    },
-                ],
-    cats: [
-        { type: '幼貓', sub: '2-6個月', small: '600', full: '-', note: '*視親人程度' },
-        { type: '短毛貓', sub: '2-6kg / >6kg', small: '800 / 1000', full: '1600 / 2000', note: '*6kg以上 +$100/kg' },
-        { type: '中長毛', sub: '2-6kg / >6kg', small: '1000 / 1200', full: '2000 / 2400', note: '*6kg以上 +$100/kg' },
-        { type: '長毛貓', sub: '2-6kg / >6kg', small: '1200 / 1400', full: '2400 / 2800', note: '*6kg以上 +$100/kg' },
-        // 貓咪升級項目
-        { type: '升級項目', sub: '去油選項', small: '局部 200', full: '全身 800~1000', note: '*視毛量與狀況而定' },
-    ],
-    extras: [
-                    { id: 'local', name: '局部修飾', desc: '貴賓臉/腳', price: '$150 / $300', forDogOnly: true },
-                    { id: 'style', name: '特殊造型', desc: '腳球 / 腳柱', price: '$400起 / $600起', forDogOnly: true },
-                    { id: 'scissor', name: '全身手剪', desc: '全身造型修剪', price: '$500起', forDogOnly: true },
-                    { id: 'other', name: '其他費用', desc: '拆結 / 除蚤 / 兇', price: '現場報價', forDogOnly: false }
-                ]
-            };
-
     // --- 2. 定義價目表頁面 (全螢幕獨立頁面版) ---
-    const PriceListPage = ({ onBack }) => {
+    const PriceListPage = ({ onBack, priceData, priceLoading }) => {
                 const [activeTab, setActiveTab] = useState('small');
                 const [searchQuery, setSearchQuery] = useState('');
 
                 // 計算哪些卡片符合搜尋條件
                 const filteredDogs = useMemo(() => {
-                    if (!searchQuery) return null;
-                    return PRICE_DATA.dogs.filter(item => 
-                        item.typeA.includes(searchQuery) || 
-                        item.typeB.includes(searchQuery) || 
-                        item.weight.includes(searchQuery) ||
-                        (item.breeds && item.breeds.some(b => b.includes(searchQuery)))
+                    if (!searchQuery || !priceData.dogs) return null;
+                    return priceData.dogs.filter(item => 
+                        (item.typeA || '').includes(searchQuery) || 
+                        (item.typeB || '').includes(searchQuery) || 
+                        (item.weight || '').includes(searchQuery)
                     );
-                }, [searchQuery]);
+                }, [searchQuery, priceData.dogs]);
 
-                const groupedDogs = useMemo(() => ({
-                    small: [PRICE_DATA.dogs[0]],
-                    medium: [PRICE_DATA.dogs[1], PRICE_DATA.dogs[2]],
-                    large: [PRICE_DATA.dogs[3], PRICE_DATA.dogs[4], PRICE_DATA.dogs[5]]
-                }), []);
+                const groupedDogs = useMemo(() => {
+                    if (!priceData.dogs || priceData.dogs.length === 0) {
+                        return { small: [], medium: [], large: [] };
+                    }
+                    return {
+                        small: priceData.dogs.slice(0, 1),
+                        medium: priceData.dogs.slice(1, 3),
+                        large: priceData.dogs.slice(3)
+                    };
+                }, [priceData.dogs]);
 
                 const TabBtn = ({ id, label, icon }) => (
                     <button 
@@ -898,7 +881,7 @@ class ErrorBoundary extends React.Component {
                 <Icon name="cat" className="absolute -right-6 -bottom-6 text-soosi-wood/5 w-32 h-32" />
                 <h4 className="font-black text-soosi-wood mb-5 text-lg">🐱 貓咪美容價格</h4>
                 <div className="space-y-6">
-                    {PRICE_DATA.cats.map((cat, i) => (
+                    {priceData.cats && priceData.cats.map((cat, i) => (
                         <div key={i} className="relative z-10 border-b border-gray-50 pb-4 last:border-0 last:pb-0">
                             <div className="flex justify-between items-baseline mb-3">
                                 <span className="font-bold text-soosi-dark">{cat.type}</span>
@@ -947,7 +930,7 @@ class ErrorBoundary extends React.Component {
                                 <h4 className="font-black text-soosi-wood mb-4 text-sm flex items-center gap-2">
                                 ✨ 其他費用項目
                                 </h4>
-                                {PRICE_DATA.extras
+                                {priceData.extras && priceData.extras
                                     .filter(ex => activeTab === 'cat' ? !ex.forDogOnly : true)
                                     .map((ex, i) => (
                                     <div key={i} className="flex justify-between items-center py-3 border-b border-dashed border-gray-50 last:border-0">
@@ -970,9 +953,30 @@ class ErrorBoundary extends React.Component {
                         </div>  
                     </div>
                 );        };
-            // --- 住宿價目表 Modal (圖片版) ---
-            const BoardingPriceModal = ({ isOpen, onClose }) => {
+            // --- 住宿價目表 Modal (圖片版 - 支援多張) ---
+            const BoardingPriceModal = ({ isOpen, onClose, images }) => {
                 if (!isOpen) return null;
+                
+                // 如果沒有圖片，顯示提示
+                if (!images || images.length === 0) {
+                    return (
+                        <div className="fixed inset-0 z-[160] bg-soosi-dark/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={onClose}>
+                            <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+                                <div className="px-6 py-4 bg-soosi-green text-white flex justify-between items-center shrink-0">
+                                    <h3 className="text-lg font-black tracking-wider flex items-center gap-2"><Icon name="image" size={18}/> 住宿價目表</h3>
+                                    <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors"><Icon name="x" size={20} /></button>
+                                </div>
+                                <div className="flex-1 flex items-center justify-center p-8 bg-[#F9F7F2]">
+                                    <div className="text-center text-gray-400">
+                                        <Icon name="image-off" size={48} className="mx-auto mb-3 opacity-30"/>
+                                        <p className="font-bold text-sm">目前尚無住宿價目表圖片</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                }
+
                 return (
                     <div className="fixed inset-0 z-[160] bg-soosi-dark/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={onClose}>
                         <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
@@ -982,21 +986,21 @@ class ErrorBoundary extends React.Component {
                                 <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors"><Icon name="x" size={20} /></button>
                             </div>
                             
-                            {/* 圖片內容區 */}
+                            {/* 圖片內容區 - 動態顯示所有啟用的圖片 */}
                             <div className="overflow-y-auto p-4 bg-[#F9F7F2] space-y-4">
-                                {/* 狗狗價目表 */}
-                                <div className="bg-white p-2 rounded-xl shadow-sm border border-gray-100">
-                                    <div className="text-center text-xs font-bold text-gray-400 mb-2">- 狗狗住宿 -</div>
-                                    {/* 檔名對應 dogprice.jpg (請確認副檔名是 jpg 不是 jgp) */}
-                                    <img src="./dogprice.jpg" alt="狗狗住宿價目表" className="w-full h-auto rounded-lg" onError={(e) => e.target.style.display = 'none'} />
-                                </div>
-                                
-                                {/* 貓咪價目表 */}
-                                <div className="bg-white p-2 rounded-xl shadow-sm border border-gray-100">
-                                    <div className="text-center text-xs font-bold text-gray-400 mb-2">- 貓咪住宿 -</div>
-                                    {/* 檔名對應 catprice.jpg */}
-                                    <img src="./catprice.jpg" alt="貓咪住宿價目表" className="w-full h-auto rounded-lg" onError={(e) => e.target.style.display = 'none'} />
-                                </div>
+                                {images.map((img, idx) => (
+                                    <div key={idx} className="bg-white p-2 rounded-xl shadow-sm border border-gray-100">
+                                        <div className="text-center text-xs font-bold text-gray-400 mb-2">- {img.title} -</div>
+                                        <img 
+                                            src={img.public_url} 
+                                            alt={img.title} 
+                                            className="w-full h-auto rounded-lg" 
+                                            onError={(e) => { 
+                                                e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="200"%3E%3Crect width="400" height="200" fill="%23f3f4f6"/%3E%3Ctext x="200" y="110" font-family="sans-serif" font-size="16" fill="%239ca3af" text-anchor="middle"%3E圖片載入失敗%3C/text%3E%3C/svg%3E';
+                                            }}
+                                        />
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>
@@ -1235,38 +1239,199 @@ const PillBtn = ({ active, onClick, children, className = "" }) => (
             const [toast, setToast] = useState(null);
             // 🌟 新增：更新提示狀態
             const [showUpdate, setShowUpdate] = useState(false);
+            const [isUpdatingSW, setIsUpdatingSW] = useState(false); // 🌟 新增：更新中狀態（視覺回饋用）
+            // [修復] 將 waitingWorker 移到 useEffect 外部定義，避免閉包問題
+            const [waitingWorker, setWaitingWorker] = useState(null);
+            // [修復] 使用 ref 來保存最新的 waitingWorker，避免閉包問題
+            const waitingWorkerRef = useRef(null);
+            // 當 waitingWorker 改變時，同步更新 ref
+            useEffect(() => {
+                waitingWorkerRef.current = waitingWorker;
+            }, [waitingWorker]);
+            // --- 1. 價目表資料 (從 Supabase 動態讀取) ---
+            const [priceData, setPriceData] = useState({
+                dogs: [],
+                cats: [],
+                extras: []
+            });
+            const [priceLoading, setPriceLoading] = useState(true);
+            
+            // --- 1.1 住宿價目表圖片 (支援多張) ---
+            const [boardingImages, setBoardingImages] = useState([]);
+
+            // 讀取價目表
+            const fetchPriceData = async () => {
+                setPriceLoading(true);
+                try {
+                    const { data, error } = await supabaseClient
+                        .from('price_config')
+                        .select('*');
+                    
+                    if (error) throw error;
+                    
+                    const result = { dogs: [], cats: [], extras: [] };
+                    data.forEach(item => {
+                        if (item.category === 'dogs') result.dogs = item.config_value;
+                        else if (item.category === 'cats') result.cats = item.config_value;
+                        else if (item.category === 'extras') result.extras = item.config_value;
+                    });
+                    setPriceData(result);
+                } catch (err) {
+                    console.error('讀取價目表失敗:', err);
+                    // 如果讀取失敗，使用預設值
+                    setPriceData({
+                        dogs: [
+                            { weight: '5kg 以下', typeA: '吉娃娃、迷你臘腸、迷你品、短毛幼犬', typeB: '貴賓、瑪爾濟斯、約克夏、博美、西施、蝴蝶犬', small: '500~700', full: '1000~1400' },
+                            { weight: '5-10kg', typeA: '巴戈、法鬥、標準臘腸、傑克羅素、雪納瑞(短)', typeB: '比熊、狐狸犬、西高地、北京犬、雪納瑞(長)', small: '600~900', full: '1200~1800' },
+                            { weight: '10-20kg', typeA: '柯基、柴犬、米格魯、台灣犬(小)、惠比特', typeB: '喜樂蒂、邊境牧羊犬、銀狐、澳洲牧羊犬', small: '1000~1800', full: '2000~3500' },
+                            { weight: '20-30kg', typeA: '台灣犬(中)、高山犬、米克斯(中)', typeB: '哈士奇、鬆獅犬、標準貴賓、古代牧羊犬', small: '1400~2000', full: '2800~4500' },
+                            { weight: '30-40kg', typeA: '拉布拉多、黃金獵犬、威瑪、杜賓、拳師', typeB: '薩摩耶、秋田、大型鬆獅、阿富汗獵犬', small: '1800~2200', full: '3600~5500' },
+                            { weight: '40kg 以上', typeA: '大丹、羅威納、藏獒、大型獒犬', typeB: '阿拉斯加、大白熊、聖伯納、伯恩山', small: '2000~2400', full: '4000~6500' }
+                        ],
+                        cats: [
+                            { type: '幼貓', sub: '2-6個月', small: '600', full: '-', note: '*視親人程度' },
+                            { type: '短毛貓', sub: '2-6kg / >6kg', small: '800 / 1000', full: '1600 / 2000', note: '*6kg以上 +$100/kg' },
+                            { type: '中長毛', sub: '2-6kg / >6kg', small: '1000 / 1200', full: '2000 / 2400', note: '*6kg以上 +$100/kg' },
+                            { type: '長毛貓', sub: '2-6kg / >6kg', small: '1200 / 1400', full: '2400 / 2800', note: '*6kg以上 +$100/kg' },
+                            { type: '升級項目', sub: '去油選項', small: '局部 200', full: '全身 800~1000', note: '*視毛量與狀況而定' }
+                        ],
+                        extras: [
+                            { id: 'local', name: '局部修飾', desc: '貴賓臉/腳', price: '$150 / $300', forDogOnly: true },
+                            { id: 'style', name: '特殊造型', desc: '腳球 / 腳柱', price: '$400起 / $600起', forDogOnly: true },
+                            { id: 'scissor', name: '全身手剪', desc: '全身造型修剪', price: '$500起', forDogOnly: true },
+                            { id: 'other', name: '其他費用', desc: '拆結 / 除蚤 / 兇', price: '現場報價', forDogOnly: false }
+                        ]
+                    });
+                } finally {
+                    setPriceLoading(false);
+                }
+            };
+            
+            // --- 讀取住宿價目表圖片 (支援多張) ---
+            const fetchBoardingImages = async () => {
+                try {
+                    const { data, error } = await supabaseClient
+                        .from('boarding_price_images')
+                        .select('*')
+                        .eq('is_active', true)
+                        .order('display_order', { ascending: true });
+                    
+                    if (error) throw error;
+                    
+                    if (data && data.length > 0) {
+                        setBoardingImages(data);
+                    } else {
+                        // 如果資料庫沒有圖片，使用預設的 Supabase Storage 圖片
+                        setBoardingImages([
+                            {
+                                title: '狗狗住宿價目表',
+                                image_type: 'dog',
+                                public_url: 'https://uhrngtsashumvwgzaumm.supabase.co/storage/v1/object/public/boarding_prices/dogprice.jpg'
+                            },
+                            {
+                                title: '貓咪住宿價目表',
+                                image_type: 'cat',
+                                public_url: 'https://uhrngtsashumvwgzaumm.supabase.co/storage/v1/object/public/boarding_prices/catprice.jpg'
+                            }
+                        ]);
+                    }
+                } catch (error) {
+                    console.error('讀取住宿價目表圖片失敗:', error);
+                    // 發生錯誤時，使用預設圖片
+                    setBoardingImages([
+                        {
+                            title: '狗狗住宿價目表',
+                            image_type: 'dog',
+                            public_url: 'https://uhrngtsashumvwgzaumm.supabase.co/storage/v1/object/public/boarding_prices/dogprice.jpg'
+                        },
+                        {
+                            title: '貓咪住宿價目表',
+                            image_type: 'cat',
+                            public_url: 'https://uhrngtsashumvwgzaumm.supabase.co/storage/v1/object/public/boarding_prices/catprice.jpg'
+                        }
+                    ]);
+                }
+            };
+
+            useEffect(() => {
+                fetchPriceData();
+                fetchBoardingImages();
+            }, []);
 
             // 🌟 新增：Service Worker 監聽邏輯 (整合在 React 內)
             useEffect(() => {
                 if ('serviceWorker' in navigator) {
                     const registerSW = async () => {
                         try {
-                            const registration = await navigator.serviceWorker.register('./sw.js?v=35');
+                            console.log('🔍 [SW] 開始註冊 Service Worker...');
+                            const registration = await navigator.serviceWorker.register('./sw.js?v=38');
+                            console.log('✅ [SW] 註冊成功:', registration);
                             
                             const justUpdated = sessionStorage.getItem('sw_just_updated') === 'true';
                             if (justUpdated) {
+                                console.log('🔍 [SW] 剛更新完畢，略過提示');
                                 sessionStorage.removeItem('sw_just_updated');
                                 setShowUpdate(false);
                                 return;
                             }
 
-                            if (registration.waiting) {
-                                setShowUpdate(true);
-                            }
+                            // 檢查是否已經有 waiting worker
+                            const checkWaitingWorker = () => {
+                                if (registration.waiting) {
+                                    console.log('✅ [SW] 發現 waiting worker，顯示更新提示');
+                                    setWaitingWorker(registration.waiting);
+                                    waitingWorkerRef.current = registration.waiting;
+                                    setShowUpdate(true);
+                                    return true;
+                                }
+                                return false;
+                            };
 
+                            // 立即檢查一次
+                            checkWaitingWorker();
+
+                            // 監聽 updatefound 事件
                             registration.addEventListener('updatefound', () => {
+                                console.log('🔍 [SW] 發現更新 (updatefound)');
                                 const newWorker = registration.installing;
-                                newWorker.addEventListener('statechange', () => {
-                                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                        setShowUpdate(true);
-                                    }
-                                });
+                                console.log('🔍 [SW] newWorker:', newWorker);
+                                
+                                if (newWorker) {
+                                    newWorker.addEventListener('statechange', () => {
+                                        console.log('🔍 [SW] worker statechange:', newWorker.state);
+                                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                            console.log('✅ [SW] 新 worker 已安裝，有舊版控制，顯示更新提示');
+                                            setWaitingWorker(newWorker);
+                                            waitingWorkerRef.current = newWorker;
+                                            setShowUpdate(true);
+                                        }
+                                    });
+                                }
                             });
+                            
+                            // 額外檢查：定期檢查是否有 waiting worker（處理某些瀏覽器延遲問題）
+                            const intervalId = setInterval(() => {
+                                navigator.serviceWorker.getRegistration().then(reg => {
+                                    if (reg && reg.waiting) {
+                                        console.log('✅ [SW] 從定時檢查發現 waiting worker');
+                                        setWaitingWorker(reg.waiting);
+                                        waitingWorkerRef.current = reg.waiting;
+                                        setShowUpdate(true);
+                                        clearInterval(intervalId);
+                                    }
+                                }).catch(err => console.warn('⚠️ [SW] 定時檢查失敗:', err));
+                            }, 3000);
+                            
+                            // 10 秒後清除定時器，避免永久執行
+                            setTimeout(() => clearInterval(intervalId), 10000);
+                            
                         } catch (error) {
-                            console.error('SW 註冊失敗:', error);
+                            console.error('❌ [SW] 註冊失敗:', error);
                         }
                     };
                     registerSW();
+                } else {
+                    console.log('⚠️ [SW] 瀏覽器不支援 Service Worker');
                 }
             }, []);
             // 🌟 新增：成功頁面所需的狀態
@@ -1298,31 +1463,71 @@ const PillBtn = ({ active, onClick, children, className = "" }) => (
                     </div>
                 );
             };
-    // 🌟 新增：更新通知組件 (風格化提示 - 置頂避開劉海版)
-            const UpdatePrompt = ({ show, onUpdate }) => {
-                if (!show) return null;
-                return (
-                    <div className="fixed left-6 right-6 z-[400] md:left-1/2 md:-translate-x-1/2 md:w-auto md:min-w-[320px] top-[calc(env(safe-area-inset-top)+1.5rem)]">
-                        <div className="bg-white p-4 rounded-2xl shadow-2xl border-2 border-soosi-green flex items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-500">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-soosi-green text-white rounded-full flex items-center justify-center shrink-0 animate-spin-slow">
-                                    <Icon name="refresh-cw" size={20} />
-                                </div>
-                                <div>
-                                    <h4 className="font-black text-soosi-dark text-sm">發現新版本！</h4>
-                                    <p className="text-[10px] text-gray-400 font-bold">更新以獲得最佳體驗 ✨</p>
-                                </div>
-                            </div>
-                            <button 
-                                onClick={onUpdate}
-                                className="bg-soosi-green text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg shadow-soosi-green/20 hover:bg-[#5a7a63] active:scale-95 transition-all whitespace-nowrap"
-                            >
-                                立即更新
-                            </button>
+// 🌟 新增：更新通知組件 (風格化提示 - 置頂避開劉海版)
+// [修復] 移到 App 元件外部，避免每次渲染都重新建立
+const UpdatePrompt = ({ show, onUpdate, onDismiss, isUpdating }) => {
+    if (!show) return null;
+    
+    return (
+        <div className="fixed left-6 right-6 z-[400] md:left-1/2 md:-translate-x-1/2 md:w-auto md:min-w-[320px] top-[calc(env(safe-area-inset-top)+1.5rem)]">
+            <div className={`bg-white p-4 rounded-2xl shadow-2xl border-2 border-soosi-green animate-in slide-in-from-top-4 duration-500 transition-all ${isUpdating ? 'opacity-75' : ''}`}>
+                <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className={`w-10 h-10 bg-soosi-green text-white rounded-full flex items-center justify-center shrink-0 transition-all duration-300 ${isUpdating ? 'animate-spin' : ''}`}>
+                            <Icon name={isUpdating ? "loader-2" : "refresh-cw"} size={20} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <h4 className="font-black text-soosi-dark text-sm truncate">
+                                {isUpdating ? '正在更新中...' : '發現新版本！'}
+                            </h4>
+                            <p className={`text-[10px] font-bold transition-all duration-300 truncate ${isUpdating ? 'text-soosi-wood animate-pulse' : 'text-gray-400'}`}>
+                                {isUpdating ? '請稍候，即將重新整理...' : '更新以獲得最佳體驗 ✨'}
+                            </p>
                         </div>
                     </div>
-                );
-            };
+                    
+                    <div className="flex items-center gap-2 shrink-0">
+                        {/* 暫不更新按鈕 - 僅在非更新狀態顯示 */}
+                        {!isUpdating && (
+                            <button 
+                                onClick={onDismiss}
+                                className="text-gray-400 hover:text-gray-600 text-[11px] font-bold px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-all whitespace-nowrap border border-transparent hover:border-gray-200"
+                                title="暫不更新，下次再說"
+                            >
+                                暫不更新
+                            </button>
+                        )}
+                        
+                        {/* 主要更新按鈕 */}
+                        <button 
+                            onClick={onUpdate}
+                            disabled={isUpdating}
+                            className={`relative overflow-hidden bg-soosi-green text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg shadow-soosi-green/20 hover:bg-[#5a7a63] transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                                isUpdating 
+                                    ? 'opacity-70 cursor-default scale-95' 
+                                    : 'active:scale-95 hover:scale-105 hover:shadow-xl'
+                            }`}
+                        >
+                            {/* 點擊波紋效果 - 僅在非更新狀態顯示 */}
+                            {!isUpdating && (
+                                <span className="absolute inset-0 rounded-xl bg-white/20 opacity-0 hover:opacity-100 transition-opacity duration-300"></span>
+                            )}
+                            
+                            {isUpdating ? (
+                                <>
+                                    <Icon name="loader-2" size={14} className="animate-spin" />
+                                    更新中...
+                                </>
+                            ) : (
+                                '立即更新'
+                            )}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
         // 2. 通用輸入處理 (文字、日期、單選)
         const handleInputChange = (e) => {
             const { name, value } = e.target;
@@ -2783,28 +2988,104 @@ if (view === 'success') {
 
     // --- 新增：價目表 View (放在 entry 之後，表單之前) ---
                 if (view === 'prices') {
-                    return <PriceListPage onBack={() => setView('form')} />;
+                    return <PriceListPage onBack={() => setView('form')} priceData={priceData} priceLoading={priceLoading} />;
                 }
 
                 // --- 2. 表單 View ---
                 return (
                     <div className="min-h-screen pb-32">
                         <ToastUI />
-                        <UpdatePrompt show={showUpdate} onUpdate={() => {
-                            sessionStorage.setItem('sw_just_updated', 'true');
-                            const onControllerChange = () => {
-                                window.location.reload();
-                                navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
-                            };
-                            navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
-                            navigator.serviceWorker.getRegistration().then(reg => {
-                                if (reg && reg.waiting) {
-                                    reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-                                } else {
+<UpdatePrompt 
+                            show={showUpdate} 
+                            isUpdating={isUpdatingSW}
+                            onUpdate={() => {
+                                // 設定更新中狀態（立即顯示視覺回饋）
+                                setIsUpdatingSW(true);
+                                
+                                console.log('🔍 [Update] 點擊了立即更新按鈕');
+                                console.log('🔍 [Update] waitingWorkerRef.current:', waitingWorkerRef.current);
+                                console.log('🔍 [Update] waitingWorker:', waitingWorker);
+                                
+                                sessionStorage.setItem('sw_just_updated', 'true');
+                                
+                                // 清除舊的控制器變更監聽，避免重複刷新
+                                const onControllerChange = () => {
+                                    console.log('✅ [Update] Service Worker 控制權已變更，刷新頁面');
+                                    window.location.reload();
+                                };
+                                
+                                // 使用一次性監聽器
+                                const handler = () => {
+                                    onControllerChange();
+                                    navigator.serviceWorker.removeEventListener('controllerchange', handler);
+                                };
+                                navigator.serviceWorker.addEventListener('controllerchange', handler);
+                                
+                                // 設定超時保護：如果 5 秒後沒有收到 controllerchange 事件，強制刷新
+                                const timeoutId = setTimeout(() => {
+                                    console.log('⏰ [Update] 等待 SW 控制權變更逾時，強制刷新');
+                                    navigator.serviceWorker.removeEventListener('controllerchange', handler);
+                                    window.location.reload();
+                                }, 5000);
+
+                                try {
+                                    const worker = waitingWorkerRef.current || waitingWorker;
+                                    console.log('🔍 [Update] 最終使用的 worker:', worker);
+                                    
+                                    if (worker) {
+                                        console.log('📤 [Update] 發送 SKIP_WAITING 訊息給 worker');
+                                        worker.postMessage({ type: 'SKIP_WAITING' });
+                                        // 發送後立即嘗試跳過等待
+                                        setTimeout(() => {
+                                            console.log('🔄 [Update] 發送後嘗試跳過等待');
+                                            worker.postMessage({ type: 'SKIP_WAITING' });
+                                        }, 500);
+                                        return;
+                                    }
+                                    
+                                    console.log('⚠️ [Update] worker 為 null，嘗試從註冊資訊獲取');
+                                    navigator.serviceWorker.getRegistration().then(reg => {
+                                        console.log('🔍 [Update] getRegistration 結果:', reg);
+                                        console.log('🔍 [Update] reg.waiting:', reg?.waiting);
+                                        console.log('🔍 [Update] reg.active:', reg?.active);
+                                        
+                                        if (reg && reg.waiting) {
+                                            console.log('📤 [Update] 從註冊資訊獲取到 waiting worker');
+                                            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                                            // 再次發送確保
+                                            setTimeout(() => {
+                                                reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                                            }, 500);
+                                        } else {
+                                            console.log('🔄 [Update] 沒有 waiting worker，直接刷新');
+                                            clearTimeout(timeoutId);
+                                            navigator.serviceWorker.removeEventListener('controllerchange', handler);
+                                            window.location.reload();
+                                        }
+                                    }).catch((err) => {
+                                        console.warn('⚠️ [Update] getRegistration 失敗:', err);
+                                        clearTimeout(timeoutId);
+                                        navigator.serviceWorker.removeEventListener('controllerchange', handler);
+                                        window.location.reload();
+                                    });
+                                } catch (err) {
+                                    console.warn('❌ [Update] SW 更新失敗，直接刷新頁面:', err);
+                                    clearTimeout(timeoutId);
+                                    navigator.serviceWorker.removeEventListener('controllerchange', handler);
                                     window.location.reload();
                                 }
-                            });
-                        }} />
+                            }}
+                            onDismiss={() => {
+                                console.log('🔍 [Update] 使用者點擊「暫不更新」');
+                                setShowUpdate(false);
+                                // 儲存到 sessionStorage，避免短時間內再次出現
+                                sessionStorage.setItem('sw_dismissed', 'true');
+                                // 設定 30 分鐘後可以再次顯示
+                                setTimeout(() => {
+                                    sessionStorage.removeItem('sw_dismissed');
+                                }, 30 * 60 * 1000);
+                            }}
+                        />
                         {/* Nav: Logo 放大 */}
                         <nav className="fixed top-0 w-full z-40 bg-white/90 backdrop-blur-xl border-b border-soosi-green/10 shadow-sm transition-all">
                             <div className="px-6 py-3 flex justify-between items-center max-w-3xl mx-auto">
@@ -4890,16 +5171,94 @@ if (view === 'success') {
                             </div>
                         </TermsModal>
                         {/* 6. 住宿價目表 Modal (圖片版) */}
-                        <BoardingPriceModal isOpen={activeModal === 'boardingPrice'} onClose={()=>setActiveModal(null)} />
+                        <BoardingPriceModal 
+                            isOpen={activeModal === 'boardingPrice'} 
+                            onClose={()=>setActiveModal(null)} 
+                            images={boardingImages}
+                        />
                     </div>
                 );
     };
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-    <ErrorBoundary>
-        <App />
-    </ErrorBoundary>
-);
+// ✅ 修正：text/babel 腳本要等 Babel 轉譯完才會執行，
+// 這時候 DOMContentLoaded 早就已經觸發過了，用 addEventListener 監聽會永遠等不到，
+// 所以改成立即執行（此時 DOM 一定已經就緒）
+console.log('🔍 開始執行 text/babel 腳本...');
+
+(function() {
+    const rootElement = document.getElementById('root');
+    if (!rootElement) {
+        console.error('❌ 找不到 root 元素');
+        return;
+    }
+    
+    console.log('🔍 root 元素已找到，開始渲染...');
+    
+    try {
+        // 檢查 React 和 ReactDOM 是否可用
+        if (typeof React === 'undefined') {
+            console.error('❌ React 未定義');
+            throw new Error('React 未正確載入');
+        }
+        if (typeof ReactDOM === 'undefined') {
+            console.error('❌ ReactDOM 未定義');
+            throw new Error('ReactDOM 未正確載入');
+        }
+        console.log('✅ React 版本:', React.version);
+        console.log('✅ ReactDOM 已載入');
+        
+        if (!ReactDOM.createRoot) {
+            console.error('❌ ReactDOM.createRoot 不存在');
+            throw new Error('ReactDOM.createRoot 不存在');
+        }
+        console.log('✅ ReactDOM.createRoot 可用');
+        
+        // 檢查 App 是否定義
+        if (typeof App === 'undefined') {
+            console.error('❌ App 元件未定義');
+            throw new Error('App 元件未定義');
+        }
+        console.log('✅ App 元件已定義');
+        
+        // 檢查 ErrorBoundary 是否定義
+        if (typeof ErrorBoundary === 'undefined') {
+            console.error('❌ ErrorBoundary 元件未定義');
+            throw new Error('ErrorBoundary 元件未定義');
+        }
+        console.log('✅ ErrorBoundary 元件已定義');
+        
+        console.log('🚀 開始渲染 React 應用程式...');
+        const root = ReactDOM.createRoot(rootElement);
+        root.render(
+            React.createElement(
+                ErrorBoundary,
+                null,
+                React.createElement(App, null)
+            )
+        );
+        console.log('✅ React 應用程式渲染指令已發出');
+        window.__soosiAppRendered = true;
+        console.log('✅ __soosiAppRendered 標記已設定');
+    } catch (err) {
+        console.error('❌ React 渲染失敗:', err);
+        console.error('❌ 錯誤堆疊:', err.stack);
+        rootElement.innerHTML = `
+            <div class="min-h-screen flex flex-col items-center justify-center bg-[#F9F7F2] text-center p-6">
+                <div class="text-soosi-red font-black text-xl mb-4">⚠️ 應用程式載入失敗</div>
+                <div class="text-gray-500 text-sm mb-4 max-w-md bg-white p-4 rounded-xl border border-red-200 text-left overflow-auto max-h-40">
+                    <div class="font-bold text-xs text-gray-400 mb-1">錯誤訊息：</div>
+                    <div class="font-mono text-sm break-words">${(err.message || '未知錯誤').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+                    ${err.stack ? `<div class="font-bold text-xs text-gray-400 mt-2 mb-1">堆疊追蹤：</div><div class="font-mono text-xs break-words text-gray-500 max-h-32 overflow-auto">${err.stack.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>` : ''}
+                </div>
+                <button onclick="window.location.reload()" class="px-6 py-3 bg-soosi-green text-white rounded-xl font-bold shadow-lg">
+                    重新整理
+                </button>
+            </div>
+        `;
+    }
+})();
+
+console.log('🔍 text/babel 腳本執行完畢');
         </script>
     </body>
     </html>
