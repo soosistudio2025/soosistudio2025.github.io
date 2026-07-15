@@ -103,7 +103,7 @@
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVocm5ndHNhc2h1bXZ3Z3phdW1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzMjMxNDUsImV4cCI6MjA4NDg5OTE0NX0.YDopNd9MHsjV9LFsHWyrxFIcWgQ_s0BMJlNSFqQfiTE';
         const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-        const ADMIN_EMAIL = "soosi.studio2025@gmail.com";
+        const ADMIN_EMAIL = "soosi.studio2025@gamil.com";
         const STAFF_EMAIL = "soosi.studio2025@staff.com";
 
         const Icon = ({ name, size = 18, className = "" }) => {
@@ -1452,6 +1452,8 @@ const CalendarView = ({ orders, onSelectOrder }) => {
             // 住宿圖片預覽用
             const [boardingImages, setBoardingImages] = useState([]);
             const [boardingImagesLoading, setBoardingImagesLoading] = useState(false);
+            // 用於強制重新整理住宿圖片元件
+            const [boardingImagesKey, setBoardingImagesKey] = useState(0);
 
             // Toast 顯示函數
             const showToast = (message, type = 'success') => {
@@ -1494,10 +1496,10 @@ const CalendarView = ({ orders, onSelectOrder }) => {
                             { type: '升級項目', sub: '去油選項', small: '局部 200', full: '全身 800~1000', note: '*視毛量與狀況而定' }
                         ];
                         result.extras = [
-                            { id: 'local', name: '局部修飾', desc: '貴賓臉/腳', price: '$150 / $300', forDogOnly: true },
-                            { id: 'style', name: '特殊造型', desc: '腳球 / 腳柱', price: '$400起 / $600起', forDogOnly: true },
-                            { id: 'scissor', name: '全身手剪', desc: '全身造型修剪', price: '$500起', forDogOnly: true },
-                            { id: 'other', name: '其他費用', desc: '拆結 / 除蚤 / 兇', price: '現場報價', forDogOnly: false }
+                            { id: 'local', name: '局部修飾', desc: '貴賓臉/腳', price: '$150 / $300', forDog: true, forCat: false },
+                            { id: 'style', name: '特殊造型', desc: '腳球 / 腳柱', price: '$400起 / $600起', forDog: true, forCat: false },
+                            { id: 'scissor', name: '全身手剪', desc: '全身造型修剪', price: '$500起', forDog: true, forCat: false },
+                            { id: 'other', name: '其他費用', desc: '拆結 / 除蚤 / 兇', price: '現場報價', forDog: true, forCat: true }
                         ];
                     }
                     setPriceData(result);
@@ -1584,14 +1586,11 @@ const CalendarView = ({ orders, onSelectOrder }) => {
                 }
             }, [activeCategory]);
 
-            // 監聽 boarding_images 的更新（當圖片管理組件有變更時重新載入）
-            // 使用 Event 或 定時檢查，這裡用簡單的方式：每當 activeCategory 是 boarding_images 時，每 5 秒檢查一次
+            // 移除定時輪詢機制，改為手動重新整理按鈕，避免頁面不斷重新整理
+            // 此 useEffect 僅在切換到 boarding_images 時載入一次圖片
             useEffect(() => {
                 if (activeCategory === 'boarding_images') {
-                    const intervalId = setInterval(() => {
-                        fetchBoardingImages();
-                    }, 5000);
-                    return () => clearInterval(intervalId);
+                    fetchBoardingImages();
                 }
             }, [activeCategory]);
 
@@ -1655,7 +1654,7 @@ const CalendarView = ({ orders, onSelectOrder }) => {
             const addExtra = () => {
                 setPriceData(prev => ({
                     ...prev,
-                    extras: [...prev.extras, { id: Date.now().toString(), name: '', desc: '', price: '', forDogOnly: false }]
+                    extras: [...prev.extras, { id: Date.now().toString(), name: '', desc: '', price: '', forDog: false, forCat: false }]
                 }));
             };
 
@@ -1771,274 +1770,439 @@ const CalendarView = ({ orders, onSelectOrder }) => {
                         </button>
                     </div>
 
-                    {/* Tab 切換 */}
-                    <div className="flex gap-2 bg-[#FAF8F5] p-1 rounded-xl">
-                        {[
-                            { id: 'dogs', label: '🐶 狗狗', count: priceData.dogs.length },
-                            { id: 'cats', label: '🐱 貓咪', count: priceData.cats.length },
-                            { id: 'extras', label: '✨ 額外項目', count: priceData.extras.length },
-                            { id: 'boarding_images', label: '🏠 住宿圖片', count: 2 }
-                        ].map(tab => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveCategory(tab.id)}
-                                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-                                    activeCategory === tab.id 
-                                    ? 'bg-white shadow-sm text-[#203B2A] border border-[#DDD6CE]' 
-                                    : 'text-[#B5A89C] hover:text-[#203B2A]'
-                                }`}
-                            >
-                                {tab.label}
-                                <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${
-                                    activeCategory === tab.id ? 'bg-[#203B2A]/10' : 'bg-gray-100'
-                                }`}>
-                                    {tab.count}
-                                </span>
-                            </button>
-                        ))}
+                    {/* Tab 切換 - 更精緻的設計 */}
+                    <div className="bg-gray-50/80 p-1.5 rounded-2xl border border-gray-100 shadow-sm">
+                        <div className="flex gap-1">
+                            {[
+                                { id: 'dogs', label: '🐶 狗狗', count: priceData.dogs.length, color: 'soosi-green' },
+                                { id: 'cats', label: '🐱 貓咪', count: priceData.cats.length, color: 'purple-400' },
+                                { id: 'extras', label: '✨ 額外項目', count: priceData.extras.length, color: 'amber-500' },
+                                { id: 'boarding_images', label: '🏠 住宿圖片', count: 2, color: 'soosi-wood' }
+                            ].map(tab => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveCategory(tab.id)}
+                                    className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 flex items-center justify-center gap-2 ${
+                                        activeCategory === tab.id 
+                                        ? `bg-white shadow-md text-${tab.color} border border-${tab.color}/20 scale-[1.02]` 
+                                        : 'text-gray-400 hover:text-gray-600 hover:bg-white/50'
+                                    }`}
+                                >
+                                    <span className="text-sm">{tab.label.split(' ')[0]}</span>
+                                    <span className="hidden sm:inline">{tab.label.split(' ').slice(1).join(' ')}</span>
+                                    <span className={`text-[9px] px-2 py-0.5 rounded-full ${
+                                        activeCategory === tab.id 
+                                        ? `bg-${tab.color}/10 text-${tab.color}` 
+                                        : 'bg-gray-100 text-gray-400'
+                                    }`}>
+                                        {tab.count}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
-                    {/* ========== 狗狗價目表 ========== */}
+                    {/* ========== 狗狗價目表 (質感優化版) ========== */}
                     {activeCategory === 'dogs' && (
-                        <div className="space-y-4">
-                            <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 flex items-start gap-2">
-                                <Icon name="info" size={16} className="text-blue-500 mt-0.5 shrink-0"/>
-                                <div className="text-[11px] text-blue-700 font-medium leading-relaxed">
-                                    <span className="font-bold">欄位說明：</span>
-                                    體重範圍、短毛範例、長毛範例、小美容價格、大美容價格
+                        <div className="space-y-5">
+                            {/* 提示卡片 - 更柔和且對齊 */}
+                            <div className="bg-gradient-to-r from-blue-50 to-blue-100/30 p-4 rounded-2xl border border-blue-100/50 shadow-sm">
+                                <div className="flex items-start gap-3">
+                                    <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-blue-500 shrink-0 mt-0.5">
+                                        <Icon name="info" size={14}/>
+                                    </div>
+                                    <div className="text-[12px] text-blue-700 font-medium leading-relaxed pt-0.5">
+                                        <span className="font-bold">欄位說明：</span>
+                                        <span className="text-blue-600">體重範圍、短毛範例、長毛範例、小美容價格、大美容價格</span>
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* 表格標題 */}
-                            <div className="grid grid-cols-5 gap-2 text-[10px] font-black text-gray-400 px-1">
-                                <div>體重範圍</div>
-                                <div>短毛範例</div>
-                                <div>長毛範例</div>
-                                <div>小美容</div>
-                                <div>大美容</div>
-                            </div>
-
-                            {/* 表格內容 */}
+                            {/* 卡片列表 - 更精緻的設計 */}
                             {priceData.dogs.map((item, index) => (
-                                <div key={index} className="grid grid-cols-5 gap-2 items-center bg-[#FAF8F5] p-2 rounded-xl border border-[#DDD6CE]">
-                                    <input 
-                                        type="text" 
-                                        placeholder="5kg 以下" 
-                                        value={item.weight || ''}
-                                        onChange={e => updateDog(index, 'weight', e.target.value)}
-                                        className="admin-input text-xs col-span-1"
-                                    />
-                                    <textarea 
-                                        placeholder="短毛範例&#10;(換行輸入)" 
-                                        value={item.typeA || ''}
-                                        onChange={e => updateDog(index, 'typeA', e.target.value)}
-                                        className="admin-input text-xs col-span-1 resize-none min-h-[60px] max-h-[120px] py-1"
-                                        rows="2"
-                                    />
-                                    <textarea 
-                                        placeholder="長毛範例&#10;(換行輸入)" 
-                                        value={item.typeB || ''}
-                                        onChange={e => updateDog(index, 'typeB', e.target.value)}
-                                        className="admin-input text-xs col-span-1 resize-none min-h-[60px] max-h-[120px] py-1"
-                                        rows="2"
-                                    />
-                                    <input 
-                                        type="text" 
-                                        placeholder="500~700" 
-                                        value={item.small || ''}
-                                        onChange={e => updateDog(index, 'small', e.target.value)}
-                                        className="admin-input text-xs col-span-1"
-                                    />
-                                    <div className="flex items-center gap-1 col-span-1">
-                                        <input 
-                                            type="text" 
-                                            placeholder="1000~1400" 
-                                            value={item.full || ''}
-                                            onChange={e => updateDog(index, 'full', e.target.value)}
-                                            className="admin-input text-xs flex-1"
-                                        />
+                                <div key={index} className="group bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-soosi-green/30 transition-all duration-200 overflow-hidden">
+                                    {/* 卡片頂部 - 序號與刪除 */}
+                                    <div className="flex justify-between items-center px-5 pt-4 pb-2 border-b border-gray-50">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-bold text-gray-300 bg-gray-50 px-2.5 py-0.5 rounded-full">#{index + 1}</span>
+                                            <span className="text-[10px] font-medium text-gray-400">狗狗價位</span>
+                                        </div>
                                         <button onClick={() => deleteDog(index)} 
-                                            className="text-red-400 hover:text-red-600 p-1 rounded-full hover:bg-red-50 transition-all shrink-0"
-                                            title="刪除">
-                                            <Icon name="x" size={14}/>
+                                            className="text-gray-300 hover:text-red-500 p-1.5 rounded-full hover:bg-red-50 transition-all duration-200">
+                                            <Icon name="x" size={16}/>
                                         </button>
+                                    </div>
+                                    
+                                    {/* 卡片內容 - 更舒適的間距 */}
+                                    <div className="p-5 space-y-4">
+                                        {/* 體重範圍 */}
+                                        <div>
+                                            <label className="text-[11px] font-bold text-gray-400 block mb-1.5 flex items-center gap-1">
+                                                <Icon name="scale" size={12}/> 體重範圍
+                                            </label>
+                                            <input 
+                                                type="text" 
+                                                placeholder="5kg 以下" 
+                                                value={item.weight || ''}
+                                                onChange={e => updateDog(index, 'weight', e.target.value)}
+                                                className="w-full bg-gray-50/80 border border-gray-200 rounded-xl text-sm py-2.5 px-4 focus:border-soosi-green focus:bg-white focus:ring-2 focus:ring-soosi-green/10 transition-all outline-none"
+                                            />
+                                        </div>
+                                        
+                                        {/* 短毛 + 長毛 */}
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="text-[11px] font-bold text-gray-400 block mb-1.5 flex items-center gap-1">
+                                                    <Icon name="dog" size={12}/> 短毛範例
+                                                </label>
+                                                <textarea 
+                                                    placeholder="吉娃娃、迷你臘腸..." 
+                                                    value={item.typeA || ''}
+                                                    onChange={e => updateDog(index, 'typeA', e.target.value)}
+                                                    className="w-full bg-gray-50/80 border border-gray-200 rounded-xl text-sm resize-none min-h-[56px] py-2 px-4 focus:border-soosi-green focus:bg-white focus:ring-2 focus:ring-soosi-green/10 transition-all outline-none"
+                                                    rows="2"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[11px] font-bold text-gray-400 block mb-1.5 flex items-center gap-1">
+                                                    <Icon name="dog" size={12}/> 長毛範例
+                                                </label>
+                                                <textarea 
+                                                    placeholder="貴賓、瑪爾濟斯..." 
+                                                    value={item.typeB || ''}
+                                                    onChange={e => updateDog(index, 'typeB', e.target.value)}
+                                                    className="w-full bg-gray-50/80 border border-gray-200 rounded-xl text-sm resize-none min-h-[56px] py-2 px-4 focus:border-soosi-green focus:bg-white focus:ring-2 focus:ring-soosi-green/10 transition-all outline-none"
+                                                    rows="2"
+                                                />
+                                            </div>
+                                        </div>
+                                        
+                                        {/* 價格 */}
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="bg-gradient-to-br from-soosi-green/5 to-transparent rounded-xl p-3 border border-soosi-green/10">
+                                                <label className="text-[11px] font-bold text-soosi-green block mb-1 flex items-center gap-1">
+                                                    <Icon name="droplet" size={12}/> 小美容
+                                                </label>
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="500~700" 
+                                                    value={item.small || ''}
+                                                    onChange={e => updateDog(index, 'small', e.target.value)}
+                                                    className="w-full bg-white border border-soosi-green/20 rounded-lg text-sm font-mono font-bold py-2 px-3 focus:border-soosi-green focus:ring-2 focus:ring-soosi-green/10 transition-all outline-none"
+                                                />
+                                            </div>
+                                            <div className="bg-gradient-to-br from-soosi-wood/5 to-transparent rounded-xl p-3 border border-soosi-wood/10">
+                                                <label className="text-[11px] font-bold text-soosi-wood block mb-1 flex items-center gap-1">
+                                                    <Icon name="sparkles" size={12}/> 大美容
+                                                </label>
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="1000~1400" 
+                                                    value={item.full || ''}
+                                                    onChange={e => updateDog(index, 'full', e.target.value)}
+                                                    className="w-full bg-white border border-soosi-wood/20 rounded-lg text-sm font-mono font-bold py-2 px-3 focus:border-soosi-wood focus:ring-2 focus:ring-soosi-wood/10 transition-all outline-none"
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
 
+                            {/* 新增按鈕 - 更有質感 */}
                             <button onClick={addDog} 
-                                className="w-full py-3 border-2 border-dashed border-[#B8A088]/30 rounded-xl text-[#B8A088] font-bold text-sm hover:bg-[#FAF8F5] transition-all flex items-center justify-center gap-2">
-                                <Icon name="plus" size={16}/> 新增狗狗價位
+                                className="w-full py-4 border-2 border-dashed border-soosi-green/30 rounded-2xl text-soosi-green font-bold text-sm hover:bg-soosi-green/5 hover:border-soosi-green/50 transition-all duration-200 flex items-center justify-center gap-2 group active:scale-[0.98]">
+                                <div className="w-8 h-8 rounded-full bg-soosi-green/10 group-hover:bg-soosi-green/20 transition-all flex items-center justify-center">
+                                    <Icon name="plus" size={16}/>
+                                </div>
+                                新增狗狗價位
                             </button>
                         </div>
                     )}
 
-                    {/* ========== 貓咪價目表 ========== */}
+                    {/* ========== 貓咪價目表 (質感優化版) ========== */}
                     {activeCategory === 'cats' && (
-                        <div className="space-y-4">
-                            <div className="bg-purple-50 p-3 rounded-lg border border-purple-100 flex items-start gap-2">
-                                <Icon name="info" size={16} className="text-purple-500 mt-0.5 shrink-0"/>
-                                <div className="text-[11px] text-purple-700 font-medium leading-relaxed">
-                                    <span className="font-bold">欄位說明：</span>
-                                    類型、子項目、小美容價格、大美容價格、備註
+                        <div className="space-y-5">
+                            {/* 提示卡片 - 更柔和且對齊 */}
+                            <div className="bg-gradient-to-r from-purple-50 to-purple-100/30 p-4 rounded-2xl border border-purple-100/50 shadow-sm">
+                                <div className="flex items-start gap-3">
+                                    <div className="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center text-purple-500 shrink-0 mt-0.5">
+                                        <Icon name="info" size={14}/>
+                                    </div>
+                                    <div className="text-[12px] text-purple-700 font-medium leading-relaxed pt-0.5">
+                                        <span className="font-bold">欄位說明：</span>
+                                        <span className="text-purple-600">類型、子項目、小美容價格、大美容價格、備註</span>
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* 表格標題 */}
-                            <div className="grid grid-cols-5 gap-2 text-[10px] font-black text-gray-400 px-1">
-                                <div>類型</div>
-                                <div>子項目</div>
-                                <div>小美容</div>
-                                <div>大美容</div>
-                                <div>備註</div>
-                            </div>
-
-                            {/* 表格內容 */}
+                            {/* 卡片列表 - 更精緻的設計 */}
                             {priceData.cats.map((item, index) => (
-                                <div key={index} className="grid grid-cols-5 gap-2 items-center bg-[#FAF8F5] p-2 rounded-xl border border-[#DDD6CE]">
-                                    <input 
-                                        type="text" 
-                                        placeholder="短毛貓" 
-                                        value={item.type || ''}
-                                        onChange={e => updateCat(index, 'type', e.target.value)}
-                                        className="admin-input text-xs col-span-1"
-                                    />
-                                    <input 
-                                        type="text" 
-                                        placeholder="2-6kg" 
-                                        value={item.sub || ''}
-                                        onChange={e => updateCat(index, 'sub', e.target.value)}
-                                        className="admin-input text-xs col-span-1"
-                                    />
-                                    <input 
-                                        type="text" 
-                                        placeholder="800" 
-                                        value={item.small || ''}
-                                        onChange={e => updateCat(index, 'small', e.target.value)}
-                                        className="admin-input text-xs col-span-1"
-                                    />
-                                    <input 
-                                        type="text" 
-                                        placeholder="1600" 
-                                        value={item.full || ''}
-                                        onChange={e => updateCat(index, 'full', e.target.value)}
-                                        className="admin-input text-xs col-span-1"
-                                    />
-                                    <div className="flex items-center gap-1 col-span-1">
-                                        <input 
-                                            type="text" 
-                                            placeholder="*6kg以上 +$100" 
-                                            value={item.note || ''}
-                                            onChange={e => updateCat(index, 'note', e.target.value)}
-                                            className="admin-input text-xs flex-1"
-                                        />
+                                <div key={index} className="group bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-purple-300/50 transition-all duration-200 overflow-hidden">
+                                    {/* 卡片頂部 */}
+                                    <div className="flex justify-between items-center px-5 pt-4 pb-2 border-b border-gray-50">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-bold text-gray-300 bg-gray-50 px-2.5 py-0.5 rounded-full">#{index + 1}</span>
+                                            <span className="text-[10px] font-medium text-gray-400">貓咪價位</span>
+                                        </div>
                                         <button onClick={() => deleteCat(index)} 
-                                            className="text-red-400 hover:text-red-600 p-1 rounded-full hover:bg-red-50 transition-all shrink-0"
-                                            title="刪除">
-                                            <Icon name="x" size={14}/>
+                                            className="text-gray-300 hover:text-red-500 p-1.5 rounded-full hover:bg-red-50 transition-all duration-200">
+                                            <Icon name="x" size={16}/>
                                         </button>
+                                    </div>
+                                    
+                                    {/* 卡片內容 */}
+                                    <div className="p-5 space-y-4">
+                                        {/* 類型 + 子項目 */}
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="text-[11px] font-bold text-gray-400 block mb-1.5 flex items-center gap-1">
+                                                    <Icon name="tag" size={12}/> 類型
+                                                </label>
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="短毛貓" 
+                                                    value={item.type || ''}
+                                                    onChange={e => updateCat(index, 'type', e.target.value)}
+                                                    className="w-full bg-gray-50/80 border border-gray-200 rounded-xl text-sm py-2.5 px-4 focus:border-purple-400 focus:bg-white focus:ring-2 focus:ring-purple-400/10 transition-all outline-none"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[11px] font-bold text-gray-400 block mb-1.5 flex items-center gap-1">
+                                                    <Icon name="list" size={12}/> 子項目
+                                                </label>
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="2-6kg" 
+                                                    value={item.sub || ''}
+                                                    onChange={e => updateCat(index, 'sub', e.target.value)}
+                                                    className="w-full bg-gray-50/80 border border-gray-200 rounded-xl text-sm py-2.5 px-4 focus:border-purple-400 focus:bg-white focus:ring-2 focus:ring-purple-400/10 transition-all outline-none"
+                                                />
+                                            </div>
+                                        </div>
+                                        
+                                        {/* 價格 */}
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="bg-gradient-to-br from-soosi-green/5 to-transparent rounded-xl p-3 border border-soosi-green/10">
+                                                <label className="text-[11px] font-bold text-soosi-green block mb-1 flex items-center gap-1">
+                                                    <Icon name="droplet" size={12}/> 小美容
+                                                </label>
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="800" 
+                                                    value={item.small || ''}
+                                                    onChange={e => updateCat(index, 'small', e.target.value)}
+                                                    className="w-full bg-white border border-soosi-green/20 rounded-lg text-sm font-mono font-bold py-2 px-3 focus:border-soosi-green focus:ring-2 focus:ring-soosi-green/10 transition-all outline-none"
+                                                />
+                                            </div>
+                                            <div className="bg-gradient-to-br from-purple-400/10 to-transparent rounded-xl p-3 border border-purple-200/30">
+                                                <label className="text-[11px] font-bold text-purple-500 block mb-1 flex items-center gap-1">
+                                                    <Icon name="sparkles" size={12}/> 大美容
+                                                </label>
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="1600" 
+                                                    value={item.full || ''}
+                                                    onChange={e => updateCat(index, 'full', e.target.value)}
+                                                    className="w-full bg-white border border-purple-200/50 rounded-lg text-sm font-mono font-bold py-2 px-3 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/10 transition-all outline-none"
+                                                />
+                                            </div>
+                                        </div>
+                                        
+                                        {/* 備註 */}
+                                        <div>
+                                            <label className="text-[11px] font-bold text-gray-400 block mb-1.5 flex items-center gap-1">
+                                                <Icon name="message-circle" size={12}/> 備註
+                                            </label>
+                                            <input 
+                                                type="text" 
+                                                placeholder="*6kg以上 +$100" 
+                                                value={item.note || ''}
+                                                onChange={e => updateCat(index, 'note', e.target.value)}
+                                                className="w-full bg-gray-50/80 border border-gray-200 rounded-xl text-sm py-2.5 px-4 focus:border-purple-400 focus:bg-white focus:ring-2 focus:ring-purple-400/10 transition-all outline-none"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             ))}
 
+                            {/* 新增按鈕 */}
                             <button onClick={addCat} 
-                                className="w-full py-3 border-2 border-dashed border-[#B8A088]/30 rounded-xl text-[#B8A088] font-bold text-sm hover:bg-[#FAF8F5] transition-all flex items-center justify-center gap-2">
-                                <Icon name="plus" size={16}/> 新增貓咪價位
+                                className="w-full py-4 border-2 border-dashed border-purple-300/40 rounded-2xl text-purple-500 font-bold text-sm hover:bg-purple-50/50 hover:border-purple-400/60 transition-all duration-200 flex items-center justify-center gap-2 group active:scale-[0.98]">
+                                <div className="w-8 h-8 rounded-full bg-purple-100 group-hover:bg-purple-200/50 transition-all flex items-center justify-center">
+                                    <Icon name="plus" size={16}/>
+                                </div>
+                                新增貓咪價位
                             </button>
                         </div>
                     )}
 
-                    {/* ========== 額外項目 ========== */}
+                    {/* ========== 額外項目 (質感優化版) ========== */}
                     {activeCategory === 'extras' && (
-                        <div className="space-y-4">
-                            <div className="bg-amber-50 p-3 rounded-lg border border-amber-100 flex items-start gap-2">
-                                <Icon name="info" size={16} className="text-amber-500 mt-0.5 shrink-0"/>
-                                <div className="text-[11px] text-amber-700 font-medium leading-relaxed">
-                                    <span className="font-bold">欄位說明：</span>
-                                    名稱、描述、價格、是否僅限狗狗
-                                    <div className="text-red-500 font-bold mt-1 text-[10px]">
-                                        ⚠️ ID 是儲存在資料庫的代碼，<span className="underline">請使用英文</span> (例如: local, style, other)
+                        <div className="space-y-5">
+                            {/* 提示卡片 - 更柔和且對齊 */}
+                            <div className="bg-gradient-to-r from-amber-50 to-amber-100/30 p-4 rounded-2xl border border-amber-100/50 shadow-sm">
+                                <div className="flex items-start gap-3">
+                                    <div className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center text-amber-500 shrink-0 mt-0.5">
+                                        <Icon name="info" size={14}/>
+                                    </div>
+                                    <div className="text-[12px] text-amber-700 font-medium leading-relaxed pt-0.5">
+                                        <span className="font-bold">欄位說明：</span>
+                                        <span className="text-amber-600">名稱、描述、價格、適用對象（狗狗/貓咪）</span>
+                                        <div className="text-red-500 font-bold mt-2 text-[10px]">
+                                            ⚠️ ID 是儲存在資料庫的代碼，<span className="underline">請使用英文</span> (例如: local, style, other)
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-
-                            {/* 表格標題 */}
-                            <div className="grid grid-cols-5 gap-2 text-[10px] font-black text-gray-400 px-1">
-                                <div className="flex items-center gap-1">
-                                    ID
-                                    <span className="text-[8px] font-normal text-blue-500 bg-blue-50 px-1 py-0.5 rounded">資料庫代碼</span>
-                                </div>
-                                <div>名稱</div>
-                                <div>描述</div>
-                                <div>價格</div>
-                                <div>僅限狗狗</div>
-                            </div>
-
-                            {/* 表格內容 */}
+                            </div>                            {/* 卡片列表 - 更精緻的設計 */}
                             {priceData.extras.map((item, index) => (
-                                <div key={index} className="grid grid-cols-5 gap-2 items-center bg-[#FAF8F5] p-2 rounded-xl border border-[#DDD6CE]">
-                                    <input 
-                                        type="text" 
-                                        placeholder="請用英文" 
-                                        value={item.id || ''}
-                                        onChange={e => updateExtra(index, 'id', e.target.value)}
-                                        className="admin-input text-xs col-span-1"
-                                    />
-                                    <input 
-                                        type="text" 
-                                        placeholder="局部修飾" 
-                                        value={item.name || ''}
-                                        onChange={e => updateExtra(index, 'name', e.target.value)}
-                                        className="admin-input text-xs col-span-1"
-                                    />
-                                    <input 
-                                        type="text" 
-                                        placeholder="貴賓臉/腳" 
-                                        value={item.desc || ''}
-                                        onChange={e => updateExtra(index, 'desc', e.target.value)}
-                                        className="admin-input text-xs col-span-1"
-                                    />
-                                    <input 
-                                        type="text" 
-                                        placeholder="$150 / $300" 
-                                        value={item.price || ''}
-                                        onChange={e => updateExtra(index, 'price', e.target.value)}
-                                        className="admin-input text-xs col-span-1"
-                                    />
-                                    <div className="flex items-center gap-1 col-span-1">
-                                        <input 
-                                            type="checkbox" 
-                                            checked={item.forDogOnly || false}
-                                            onChange={e => updateExtra(index, 'forDogOnly', e.target.checked)}
-                                            className="w-4 h-4 accent-[#203B2A] cursor-pointer"
-                                        />
+                                <div key={index} className="group bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-amber-300/50 transition-all duration-200 overflow-hidden">
+                                    {/* 卡片頂部 */}
+                                    <div className="flex justify-between items-center px-5 pt-4 pb-2 border-b border-gray-50">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-bold text-gray-300 bg-gray-50 px-2.5 py-0.5 rounded-full">#{index + 1}</span>
+                                            <span className="text-[10px] font-medium text-gray-400">額外項目</span>
+                                        </div>
                                         <button onClick={() => deleteExtra(index)} 
-                                            className="text-red-400 hover:text-red-600 p-1 rounded-full hover:bg-red-50 transition-all ml-auto"
-                                            title="刪除">
-                                            <Icon name="x" size={14}/>
+                                            className="text-gray-300 hover:text-red-500 p-1.5 rounded-full hover:bg-red-50 transition-all duration-200">
+                                            <Icon name="x" size={16}/>
                                         </button>
+                                    </div>
+                                    
+                                    {/* 卡片內容 */}
+                                    <div className="p-5 space-y-4">
+                                        {/* ID */}
+                                        <div>
+                                            <label className="text-[11px] font-bold text-gray-400 block mb-1.5 flex items-center gap-1">
+                                                <Icon name="hash" size={12}/> ID
+                                                <span className="text-[8px] font-normal text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-full">資料庫代碼・請用英文</span>
+                                            </label>
+                                            <input 
+                                                type="text" 
+                                                placeholder="例如: local, style, other" 
+                                                value={item.id || ''}
+                                                onChange={e => updateExtra(index, 'id', e.target.value)}
+                                                className="w-full bg-gray-50/80 border border-gray-200 rounded-xl text-sm py-2.5 px-4 uppercase tracking-wider focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-400/10 transition-all outline-none"
+                                            />
+                                        </div>
+                                        
+                                        {/* 名稱 + 描述 */}
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="text-[11px] font-bold text-gray-400 block mb-1.5 flex items-center gap-1">
+                                                    <Icon name="pencil" size={12}/> 名稱
+                                                </label>
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="局部修飾" 
+                                                    value={item.name || ''}
+                                                    onChange={e => updateExtra(index, 'name', e.target.value)}
+                                                    className="w-full bg-gray-50/80 border border-gray-200 rounded-xl text-sm py-2.5 px-4 focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-400/10 transition-all outline-none"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[11px] font-bold text-gray-400 block mb-1.5 flex items-center gap-1">
+                                                    <Icon name="align-left" size={12}/> 描述
+                                                </label>
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="貴賓臉/腳" 
+                                                    value={item.desc || ''}
+                                                    onChange={e => updateExtra(index, 'desc', e.target.value)}
+                                                    className="w-full bg-gray-50/80 border border-gray-200 rounded-xl text-sm py-2.5 px-4 focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-400/10 transition-all outline-none"
+                                                />
+                                            </div>
+                                        </div>
+                                        
+                                        {/* 價格 + 適用對象 */}
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="bg-gradient-to-br from-amber-50/50 to-transparent rounded-xl p-3 border border-amber-100/30">
+                                                <label className="text-[11px] font-bold text-amber-600 block mb-1 flex items-center gap-1">
+                                                    <Icon name="dollar-sign" size={12}/> 價格
+                                                </label>
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="$150 / $300" 
+                                                    value={item.price || ''}
+                                                    onChange={e => updateExtra(index, 'price', e.target.value)}
+                                                    className="w-full bg-white border border-amber-200/50 rounded-lg text-sm font-mono font-bold py-2 px-3 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/10 transition-all outline-none"
+                                                />
+                                            </div>
+                                            <div className="bg-gradient-to-br from-soosi-green/5 to-transparent rounded-xl p-3 border border-soosi-green/10">
+                                                <label className="text-[11px] font-bold text-gray-400 block mb-1.5 flex items-center gap-1">
+                                                    <Icon name="users" size={12}/> 適用對象
+                                                </label>
+                                                <div className="flex gap-3">
+                                                    <label className="flex items-center gap-2 text-xs font-bold text-gray-600 cursor-pointer hover:text-soosi-green transition-colors">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={item.forDog || false}
+                                                            onChange={e => updateExtra(index, 'forDog', e.target.checked)}
+                                                            className="w-4 h-4 accent-soosi-green rounded cursor-pointer"
+                                                        />
+                                                        🐶 狗狗
+                                                    </label>
+                                                    <label className="flex items-center gap-2 text-xs font-bold text-gray-600 cursor-pointer hover:text-soosi-green transition-colors">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={item.forCat || false}
+                                                            onChange={e => updateExtra(index, 'forCat', e.target.checked)}
+                                                            className="w-4 h-4 accent-soosi-green rounded cursor-pointer"
+                                                        />
+                                                        🐱 貓咪
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
 
+                            {/* 新增按鈕 */}
                             <button onClick={addExtra} 
-                                className="w-full py-3 border-2 border-dashed border-[#B8A088]/30 rounded-xl text-[#B8A088] font-bold text-sm hover:bg-[#FAF8F5] transition-all flex items-center justify-center gap-2">
-                                <Icon name="plus" size={16}/> 新增額外項目
+                                className="w-full py-4 border-2 border-dashed border-amber-300/40 rounded-2xl text-amber-500 font-bold text-sm hover:bg-amber-50/50 hover:border-amber-400/60 transition-all duration-200 flex items-center justify-center gap-2 group active:scale-[0.98]">
+                                <div className="w-8 h-8 rounded-full bg-amber-100 group-hover:bg-amber-200/50 transition-all flex items-center justify-center">
+                                    <Icon name="plus" size={16}/>
+                                </div>
+                                新增額外項目
                             </button>
                         </div>
                     )}
 
                     {/* ========== 住宿價目表圖片管理 ========== */}
                     {activeCategory === 'boarding_images' && (
-                        <BoardingPriceImageManager />
+                        <div>
+                            <BoardingPriceImageManager 
+                                key={boardingImagesKey}
+                                onDataChanged={() => {
+                                    // 當圖片資料變更時，觸發預覽區的重新整理
+                                    fetchBoardingImages();
+                                }}
+                            />
+                        </div>
                     )}
 
                     {/* 即時預覽 - 顯示前台風格的價目表 */}
                     <div className="border-t border-[#DDD6CE] pt-4 mt-4">
-                        <div className="flex items-center gap-2 mb-4">
-                            <Icon name="eye" size={16} className="text-soosi-wood"/>
-                            <span className="font-bold text-sm text-soosi-dark">📱 前台即時預覽</span>
-                            <span className="text-[10px] text-gray-400">編輯時同步更新</span>
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <Icon name="eye" size={16} className="text-soosi-wood"/>
+                                <span className="font-bold text-sm text-soosi-dark">📱 前台即時預覽</span>
+                                <span className="text-[10px] text-gray-400">編輯時同步更新</span>
+                            </div>
+                            {/* 🌟 重新整理按鈕移到預覽區標題旁 - 僅住宿圖片分頁顯示 */}
+                            {activeCategory === 'boarding_images' && (
+                                <button 
+                                    onClick={() => { 
+                                        // 觸發 BoardingPriceImageManager 重新載入
+                                        setBoardingImagesKey(prev => prev + 1);
+                                        // 同時觸發預覽區的重新整理
+                                        fetchBoardingImages();
+                                    }}
+                                    className="px-4 py-2 bg-soosi-wood/10 text-soosi-wood rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-soosi-wood/20 transition-all active:scale-95"
+                                >
+                                    <Icon name="refresh-cw" size={14}/> 重新整理
+                                </button>
+                            )}
                         </div>
                         
                         <div className="bg-[#F9F7F2] p-4 rounded-xl border border-gray-200 max-h-[400px] overflow-y-auto">
@@ -2153,7 +2317,7 @@ const CalendarView = ({ orders, onSelectOrder }) => {
         };
 
         // --- 住宿價目表圖片管理組件 (支援多張圖片 + 自訂標題 + 拖曳排序) ---
-        const BoardingPriceImageManager = () => {
+        const BoardingPriceImageManager = ({ onDataChanged }) => {
             const [images, setImages] = useState([]);
             const [loading, setLoading] = useState(false);
             const [uploading, setUploading] = useState(false);
@@ -2186,9 +2350,14 @@ const CalendarView = ({ orders, onSelectOrder }) => {
                     
                     if (error) throw error;
                     setImages(data || []);
+                    // 🌟 資料載入完成後，通知父層刷新預覽（確保每次載入都觸發）
+                    if (onDataChanged) {
+                        console.log('🔄 [BoardingPriceImageManager] 觸發 onDataChanged，刷新預覽');
+                        onDataChanged();
+                    }
                 } catch (error) {
                     console.error('載入圖片失敗:', error);
-                    alert('載入圖片失敗：' + error.message);
+                    showToast('載入圖片失敗：' + error.message, 'error');
                 } finally {
                     setLoading(false);
                 }
@@ -2256,17 +2425,18 @@ const CalendarView = ({ orders, onSelectOrder }) => {
                     
                     if (insertError) throw insertError;
                     
-                    alert('✅ 圖片新增成功！');
+                    showToast('✅ 圖片新增成功！', 'success');
                     setNewTitle('');
                     setNewFile(null);
                     setPreviewUrl(null);
                     setNewType('dog');
                     document.getElementById('new_image_file').value = '';
+                    // 重新載入圖片，並通知父層刷新預覽
                     await loadImages();
                     
                 } catch (error) {
                     console.error('上傳失敗:', error);
-                    alert('上傳失敗：' + error.message);
+                    showToast('上傳失敗：' + error.message, 'error');
                 } finally {
                     setUploading(false);
                 }
@@ -2284,38 +2454,46 @@ const CalendarView = ({ orders, onSelectOrder }) => {
                     
                     if (error) throw error;
                     
-                    alert('✅ 圖片已刪除');
+                    showToast('✅ 圖片已刪除', 'success');
+                    // 重新載入圖片，並通知父層刷新預覽
                     await loadImages();
                 } catch (error) {
                     console.error('刪除失敗:', error);
-                    alert('刪除失敗：' + error.message);
+                    showToast('刪除失敗：' + error.message, 'error');
                 }
             };
 
             // 切換啟用狀態
             const handleToggleActive = async (id, currentActive) => {
                 try {
+                    const newStatus = !currentActive;
+                    console.log(`🔄 [Toggle] 切換圖片 ${id} 狀態: ${currentActive} -> ${newStatus}`);
+                    
                     const { error } = await supabaseClient
                         .from('boarding_price_images')
-                        .update({ is_active: !currentActive })
+                        .update({ is_active: newStatus })
                         .eq('id', id);
                     
                     if (error) throw error;
                     
+                    showToast(newStatus ? '✅ 圖片已啟用' : '⛔ 圖片已停用', 'success');
+                    // 重新載入圖片，並通知父層刷新預覽
                     await loadImages();
                 } catch (error) {
                     console.error('切換狀態失敗:', error);
-                    alert('切換狀態失敗：' + error.message);
+                    showToast('切換狀態失敗：' + error.message, 'error');
                 }
             };
 
             // 更新標題
             const handleUpdateTitle = async (id, value) => {
                 if (!value.trim()) {
-                    alert('標題不能為空');
+                    showToast('標題不能為空', 'error');
                     return;
                 }
                 try {
+                    console.log(`🔄 [UpdateTitle] 更新圖片 ${id} 標題: ${value.trim()}`);
+                    
                     const { error } = await supabaseClient
                         .from('boarding_price_images')
                         .update({ title: value.trim() })
@@ -2323,13 +2501,12 @@ const CalendarView = ({ orders, onSelectOrder }) => {
                     
                     if (error) throw error;
                     
-                    setImages(prev => prev.map(img => 
-                        img.id === id ? { ...img, title: value.trim() } : img
-                    ));
-                    setEditingId(null);
+                    showToast('✅ 標題已更新', 'success');
+                    // 重新載入圖片，確保資料一致並通知父層刷新預覽
+                    await loadImages();
                 } catch (error) {
                     console.error('更新失敗:', error);
-                    alert('更新失敗：' + error.message);
+                    showToast('更新失敗：' + error.message, 'error');
                 }
             };
 
@@ -2337,6 +2514,8 @@ const CalendarView = ({ orders, onSelectOrder }) => {
             const handleOrderChange = async (id, value) => {
                 const numValue = parseInt(value) || 0;
                 try {
+                    console.log(`🔄 [OrderChange] 更新圖片 ${id} 排序: ${numValue}`);
+                    
                     const { error } = await supabaseClient
                         .from('boarding_price_images')
                         .update({ display_order: numValue })
@@ -2344,12 +2523,11 @@ const CalendarView = ({ orders, onSelectOrder }) => {
                     
                     if (error) throw error;
                     
-                    setImages(prev => prev.map(img => 
-                        img.id === id ? { ...img, display_order: numValue } : img
-                    ).sort((a, b) => (a.display_order || 0) - (b.display_order || 0)));
+                    // 重新載入圖片，確保資料一致並通知父層刷新預覽
+                    await loadImages();
                 } catch (error) {
                     console.error('更新排序失敗:', error);
-                    alert('更新排序失敗：' + error.message);
+                    showToast('更新排序失敗：' + error.message, 'error');
                 }
             };
 
@@ -2416,9 +2594,11 @@ const CalendarView = ({ orders, onSelectOrder }) => {
                             .update({ display_order: img.display_order })
                             .eq('id', img.id);
                     }
+                    // 通知父層刷新預覽（拖曳排序完成後）
+                    if (onDataChanged) onDataChanged();
                 } catch (error) {
                     console.error('批次更新排序失敗:', error);
-                    alert('更新排序失敗，請稍後再試');
+                    showToast('更新排序失敗，請稍後再試', 'error');
                     await loadImages(); // 重新載入恢復原始排序
                 }
             };
@@ -2436,36 +2616,42 @@ const CalendarView = ({ orders, onSelectOrder }) => {
                             {toast.message}
                         </div>
                     )}
-                    {/* 新增圖片表單 - 優化版 */}
-                    <div className="bg-gradient-to-r from-soosi-green/5 to-soosi-green/10 p-5 rounded-xl border-2 border-soosi-green/20 space-y-4">
-                        <div className="flex items-center gap-2 border-b border-soosi-green/10 pb-3">
-                            <div className="w-8 h-8 bg-soosi-green rounded-full flex items-center justify-center text-white">
-                                <Icon name="plus-circle" size={18}/>
+                    {/* 新增圖片表單 - 質感優化版 */}
+                    <div className="bg-gradient-to-br from-soosi-wood/5 via-white to-soosi-green/5 p-6 rounded-2xl border-2 border-soosi-wood/10 shadow-sm">
+                        <div className="flex items-center gap-3 border-b border-gray-100 pb-4 mb-5">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-soosi-green to-soosi-wood flex items-center justify-center text-white shadow-md shadow-soosi-green/20">
+                                <Icon name="plus-circle" size={20}/>
                             </div>
-                            <h4 className="font-bold text-soosi-dark text-base">新增住宿價目表圖片</h4>
-                            <span className="text-[10px] text-gray-400 ml-2">上傳後可在下方管理</span>
+                            <div>
+                                <h4 className="font-bold text-soosi-dark text-base">新增住宿價目表圖片</h4>
+                                <p className="text-[10px] text-gray-400">上傳後可在下方管理與排序</p>
+                            </div>
                         </div>
                         
-                        <div className="grid md:grid-cols-12 gap-3 items-end">
+                        <div className="grid md:grid-cols-12 gap-4 items-end">
                             {/* 標題輸入 */}
                             <div className="md:col-span-3">
-                                <label className="text-[10px] font-bold text-gray-400 block mb-1">標題名稱</label>
+                                <label className="text-[11px] font-bold text-gray-400 block mb-1.5 flex items-center gap-1">
+                                    <Icon name="type" size={12}/> 標題名稱
+                                </label>
                                 <input 
                                     type="text"
                                     placeholder="例如：過年方案"
                                     value={newTitle}
                                     onChange={(e) => setNewTitle(e.target.value)}
-                                    className="w-full cute-input px-3 py-2.5 text-sm bg-white"
+                                    className="w-full bg-gray-50/80 border border-gray-200 rounded-xl text-sm py-2.5 px-4 focus:border-soosi-green focus:bg-white focus:ring-2 focus:ring-soosi-green/10 transition-all outline-none"
                                 />
                             </div>
                             
                             {/* 分類選擇 */}
                             <div className="md:col-span-2">
-                                <label className="text-[10px] font-bold text-gray-400 block mb-1">圖片分類</label>
+                                <label className="text-[11px] font-bold text-gray-400 block mb-1.5 flex items-center gap-1">
+                                    <Icon name="folder" size={12}/> 圖片分類
+                                </label>
                                 <select 
                                     value={newType} 
                                     onChange={(e) => setNewType(e.target.value)}
-                                    className="w-full cute-input px-3 py-2.5 text-sm bg-white appearance-none"
+                                    className="w-full bg-gray-50/80 border border-gray-200 rounded-xl text-sm py-2.5 px-4 focus:border-soosi-green focus:bg-white focus:ring-2 focus:ring-soosi-green/10 transition-all outline-none appearance-none"
                                 >
                                     <option value="dog">🐶 狗狗</option>
                                     <option value="cat">🐱 貓咪</option>
@@ -2475,7 +2661,9 @@ const CalendarView = ({ orders, onSelectOrder }) => {
                             
                             {/* 檔案上傳 */}
                             <div className="md:col-span-4">
-                                <label className="text-[10px] font-bold text-gray-400 block mb-1">選擇圖片檔案</label>
+                                <label className="text-[11px] font-bold text-gray-400 block mb-1.5 flex items-center gap-1">
+                                    <Icon name="image" size={12}/> 選擇圖片檔案
+                                </label>
                                 <div className="relative">
                                     <input 
                                         id="new_image_file"
@@ -2486,29 +2674,29 @@ const CalendarView = ({ orders, onSelectOrder }) => {
                                                 setNewFile(e.target.files[0]);
                                             }
                                         }}
-                                        className="block w-full text-xs text-gray-500 
-                                            file:mr-3 file:py-2 file:px-4 
+                                        className="block w-full text-sm text-gray-500 
+                                            file:mr-3 file:py-2.5 file:px-5 
                                             file:rounded-xl file:border-0 
-                                            file:text-xs file:font-bold 
+                                            file:text-sm file:font-bold 
                                             file:bg-soosi-green/10 file:text-soosi-green 
                                             hover:file:bg-soosi-green/20 
                                             transition-all cursor-pointer
-                                            bg-white rounded-xl border-2 border-gray-200 py-1.5 px-2
+                                            bg-gray-50/80 rounded-xl border-2 border-gray-200 py-1.5 px-3
                                             focus:border-soosi-green/50 outline-none"
                                     />
                                     {newFile && (
-                                        <div className="absolute right-2 top-1/2 -translate-y-1/2 bg-green-100 text-green-600 text-[9px] font-bold px-2 py-0.5 rounded-full">
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 bg-green-100 text-green-600 text-[10px] font-bold px-2.5 py-1 rounded-full">
                                             ✅ 已選
                                         </div>
                                     )}
                                 </div>
                                 {previewUrl && (
-                                    <div className="mt-2 flex items-center gap-3 bg-white p-2 rounded-lg border border-gray-200">
-                                        <img src={previewUrl} alt="預覽" className="h-12 w-12 object-cover rounded-lg border border-gray-100" />
-                                        <span className="text-[10px] text-gray-400 truncate flex-1">{newFile?.name}</span>
+                                    <div className="mt-2 flex items-center gap-3 bg-white p-2.5 rounded-xl border border-gray-200 shadow-sm">
+                                        <img src={previewUrl} alt="預覽" className="h-14 w-14 object-cover rounded-lg border border-gray-100" />
+                                        <span className="text-xs text-gray-400 truncate flex-1 font-medium">{newFile?.name}</span>
                                         <button 
                                             onClick={() => { setNewFile(null); setPreviewUrl(null); document.getElementById('new_image_file').value = ''; }}
-                                            className="text-red-400 hover:text-red-600 text-xs font-bold"
+                                            className="text-red-400 hover:text-red-600 text-xs font-bold px-2.5 py-1.5 bg-red-50 rounded-lg hover:bg-red-100 transition-all"
                                         >
                                             移除
                                         </button>
@@ -2518,13 +2706,14 @@ const CalendarView = ({ orders, onSelectOrder }) => {
                             
                             {/* 上傳按鈕 */}
                             <div className="md:col-span-3">
+                                <label className="text-[11px] font-bold text-gray-400 block mb-1.5 opacity-0">上傳</label>
                                 <button 
                                     onClick={handleUpload} 
                                     disabled={uploading || !newFile}
-                                    className={`w-full py-2.5 rounded-xl text-sm font-bold shadow-md transition-all flex items-center justify-center gap-2 ${
+                                    className={`w-full py-3 rounded-xl text-sm font-bold shadow-md transition-all flex items-center justify-center gap-2 ${
                                         uploading || !newFile
                                             ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none' 
-                                            : 'bg-soosi-green text-white hover:bg-[#5a7a63] active:scale-95 shadow-soosi-green/30'
+                                            : 'bg-gradient-to-r from-soosi-green to-[#5a7a63] text-white hover:shadow-lg active:scale-95 shadow-soosi-green/30'
                                     }`}
                                 >
                                     {uploading ? (
@@ -2540,7 +2729,7 @@ const CalendarView = ({ orders, onSelectOrder }) => {
                                     )}
                                 </button>
                                 {!newFile && !uploading && (
-                                    <p className="text-[9px] text-gray-300 text-center mt-1">請先選擇圖片檔案</p>
+                                    <p className="text-[10px] text-gray-300 text-center mt-1">請先選擇圖片檔案</p>
                                 )}
                             </div>
                         </div>
@@ -2556,13 +2745,23 @@ const CalendarView = ({ orders, onSelectOrder }) => {
                         </div>
                     ) : (
                         <>
-                            <div className="flex justify-between items-center mb-2">
-                                <span className="text-xs font-bold text-gray-400">
-                                    共 {images.length} 張圖片，啟用中 {activeCount} 張
+                            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-xs font-bold text-gray-400 bg-white px-3 py-1.5 rounded-full shadow-sm border border-gray-100">
+                                        📷 共 {images.length} 張
+                                    </span>
+                                    <span className="text-xs font-bold text-green-500 bg-green-50 px-3 py-1.5 rounded-full border border-green-100">
+                                        ✅ 啟用 {activeCount} 張
+                                    </span>
+                                    <span className="text-xs font-bold text-gray-400 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
+                                        ⛔ 停用 {images.length - activeCount} 張
+                                    </span>
+                                </div>
+                                <span className="text-[10px] text-soosi-wood bg-soosi-wood/5 px-3 py-1 rounded-full border border-soosi-wood/10 flex items-center gap-1">
+                                    <Icon name="move" size={12}/> 拖曳調整排序
                                 </span>
-                                <span className="text-[10px] text-soosi-wood">💡 拖曳圖片可調整排序</span>
                             </div>
-                            <div className="space-y-2">
+                            <div className="space-y-3">
                                 {images.map((img, index) => (
                                     <div 
                                         key={img.id} 
@@ -2571,123 +2770,130 @@ const CalendarView = ({ orders, onSelectOrder }) => {
                                         onDragEnd={handleDragEnd}
                                         onDragOver={handleDragOver}
                                         onDrop={(e) => handleDrop(e, index)}
-                                        className={`drag-item bg-white p-3 rounded-xl border-2 transition-all cursor-grab active:cursor-grabbing ${
-                                            img.is_active ? 'border-soosi-green/30' : 'border-gray-200 opacity-60'
+                                        className={`group drag-item bg-white rounded-2xl border-2 transition-all duration-200 cursor-grab active:cursor-grabbing overflow-hidden ${
+                                            img.is_active 
+                                                ? 'border-soosi-green/20 hover:border-soosi-green/50 hover:shadow-md' 
+                                                : 'border-gray-200 opacity-60 hover:border-gray-300'
                                         } ${isDragging ? 'hover:border-soosi-green hover:bg-soosi-green/5' : ''}`}
                                     >
-                                        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                                            {/* 拖曳手柄 */}
-                                            <div className="text-gray-300 shrink-0 select-none text-sm px-1">
-                                                <Icon name="grip-vertical" size={16} className={editingId ? 'opacity-30' : ''} />
-                                            </div>
-                                            
-                                            {/* 縮圖 */}
-                                            <div className="w-16 h-16 shrink-0 bg-gray-50 rounded-lg border border-gray-100 overflow-hidden flex items-center justify-center">
-                                                <img 
-                                                    src={img.public_url} 
-                                                    alt={img.title} 
-                                                    className="w-full h-full object-contain"
-                                                    onError={(e) => { 
-                                                        e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="64" height="64"%3E%3Crect width="64" height="64" fill="%23f3f4f6"/%3E%3Ctext x="32" y="36" font-family="sans-serif" font-size="10" fill="%239ca3af" text-anchor="middle"%3E無圖%3C/text%3E%3C/svg%3E';
-                                                    }}
-                                                />
-                                            </div>
-                                            
-                                            {/* 資訊 */}
-                                            <div className="flex-1 min-w-0 space-y-1">
-                                                <div className="flex items-center gap-2 flex-wrap">
-                                                    {editingId === img.id ? (
-                                                        <div className="flex items-center gap-2">
+                                        <div className="p-4">
+                                            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                                                {/* 拖曳手柄 + 縮圖區 */}
+                                                <div className="flex items-center gap-3 shrink-0">
+                                                    <div className="text-gray-300 select-none group-hover:text-soosi-wood transition-colors">
+                                                        <Icon name="grip-vertical" size={18} className={editingId ? 'opacity-30' : ''} />
+                                                    </div>
+                                                    <div className="w-20 h-20 shrink-0 bg-gray-50 rounded-xl border border-gray-100 overflow-hidden flex items-center justify-center shadow-sm group-hover:shadow-md transition-all">
+                                                        <img 
+                                                            src={img.public_url} 
+                                                            alt={img.title} 
+                                                            className="w-full h-full object-contain"
+                                                            onError={(e) => { 
+                                                                e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="80" height="80"%3E%3Crect width="80" height="80" fill="%23f3f4f6"/%3E%3Ctext x="40" y="44" font-family="sans-serif" font-size="10" fill="%239ca3af" text-anchor="middle"%3E無圖%3C/text%3E%3C/svg%3E';
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                
+                                                {/* 資訊區 */}
+                                                <div className="flex-1 min-w-0 space-y-2">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        {editingId === img.id ? (
+                                                            <div className="flex flex-wrap items-center gap-2 w-full">
+                                                                <input 
+                                                                    type="text" 
+                                                                    value={editTitle} 
+                                                                    onChange={(e) => setEditTitle(e.target.value)}
+                                                                    className="flex-1 min-w-[120px] bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 text-sm font-bold focus:border-soosi-green focus:bg-white focus:ring-2 focus:ring-soosi-green/10 transition-all outline-none"
+                                                                    autoFocus
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === 'Enter') handleUpdateTitle(img.id, editTitle);
+                                                                        if (e.key === 'Escape') cancelEdit();
+                                                                    }}
+                                                                />
+                                                                <button 
+                                                                    onClick={() => handleUpdateTitle(img.id, editTitle)}
+                                                                    className="px-3 py-1.5 bg-soosi-green text-white rounded-xl text-xs font-bold hover:bg-[#5a7a63] transition-all"
+                                                                >
+                                                                    儲存
+                                                                </button>
+                                                                <button 
+                                                                    onClick={cancelEdit}
+                                                                    className="px-3 py-1.5 bg-gray-100 text-gray-500 rounded-xl text-xs font-bold hover:bg-gray-200 transition-all"
+                                                                >
+                                                                    取消
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <>
+                                                                <span className="font-bold text-soosi-dark text-base truncate">{img.title || '未命名'}</span>
+                                                                <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold shrink-0 ${
+                                                                    img.image_type === 'dog' ? 'bg-blue-100 text-blue-600' :
+                                                                    img.image_type === 'cat' ? 'bg-purple-100 text-purple-600' :
+                                                                    'bg-gray-100 text-gray-600'
+                                                                }`}>
+                                                                    {img.image_type === 'dog' ? '🐶 狗狗' :
+                                                                     img.image_type === 'cat' ? '🐱 貓咪' : '📄 其他'}
+                                                                </span>
+                                                                {img.is_active ? (
+                                                                    <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-green-100 text-green-600 font-bold shrink-0">✅ 啟用</span>
+                                                                ) : (
+                                                                    <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-400 font-bold shrink-0">⛔ 停用</span>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400">
+                                                        <div className="flex items-center gap-1.5 bg-gray-50 px-2.5 py-1 rounded-lg">
+                                                            <Icon name="sort-asc" size={12}/>
+                                                            <span className="font-medium">排序</span>
                                                             <input 
-                                                                type="text" 
-                                                                value={editTitle} 
-                                                                onChange={(e) => setEditTitle(e.target.value)}
-                                                                className="cute-input px-2 py-1 text-sm font-bold min-w-[120px]"
-                                                                autoFocus
-                                                                onKeyDown={(e) => {
-                                                                    if (e.key === 'Enter') handleUpdateTitle(img.id, editTitle);
-                                                                    if (e.key === 'Escape') cancelEdit();
-                                                                }}
+                                                                type="number" 
+                                                                min="0"
+                                                                value={img.display_order || 0} 
+                                                                onChange={(e) => handleOrderChange(img.id, e.target.value)}
+                                                                className="w-14 bg-white border border-gray-200 rounded-lg px-1.5 py-0.5 text-center text-sm font-bold focus:border-soosi-green focus:ring-1 focus:ring-soosi-green/20 transition-all outline-none"
                                                             />
-                                                            <button 
-                                                                onClick={() => handleUpdateTitle(img.id, editTitle)}
-                                                                className="px-2 py-1 bg-soosi-green text-white rounded-lg text-xs font-bold"
-                                                            >
-                                                                儲存
-                                                            </button>
-                                                            <button 
-                                                                onClick={cancelEdit}
-                                                                className="px-2 py-1 bg-gray-100 text-gray-500 rounded-lg text-xs font-bold"
-                                                            >
-                                                                取消
-                                                            </button>
                                                         </div>
-                                                    ) : (
-                                                        <>
-                                                            <span className="font-bold text-soosi-dark text-sm truncate">{img.title}</span>
-                                                            <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold shrink-0 ${
-                                                                img.image_type === 'dog' ? 'bg-blue-100 text-blue-600' :
-                                                                img.image_type === 'cat' ? 'bg-purple-100 text-purple-600' :
-                                                                'bg-gray-100 text-gray-600'
-                                                            }`}>
-                                                                {img.image_type === 'dog' ? '🐶 狗狗' :
-                                                                 img.image_type === 'cat' ? '🐱 貓咪' : '📄 其他'}
-                                                            </span>
-                                                            {img.is_active ? (
-                                                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-green-100 text-green-600 font-bold shrink-0">✅ 啟用</span>
-                                                            ) : (
-                                                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-400 font-bold shrink-0">⛔ 停用</span>
-                                                            )}
-                                                        </>
-                                                    )}
+                                                        <span className="text-[10px] text-gray-400">ID: {String(img.id).slice(-6)}</span>
+                                                        <span className="text-[10px] text-gray-400 hidden md:inline">📅 {new Date(img.created_at).toLocaleDateString()}</span>
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center gap-3 text-xs text-gray-400">
-                                                    <span>排序：</span>
-                                                    <input 
-                                                        type="number" 
-                                                        min="0"
-                                                        value={img.display_order || 0} 
-                                                        onChange={(e) => handleOrderChange(img.id, e.target.value)}
-                                                        className="w-12 cute-input px-1 py-0.5 text-center text-xs"
-                                                    />
-                                                    <span>ID: {String(img.id).slice(-6)}</span>
-                                                    <span className="hidden sm:inline">上傳：{new Date(img.created_at).toLocaleDateString()}</span>
-                                                </div>
-                                            </div>
-                                            
-                                        {/* 操作按鈕 - 中文化 */}
-                                        <div className="flex gap-1.5 shrink-0 flex-wrap">
-                                            {editingId !== img.id && (
+                                                
+                                            {/* 操作按鈕 */}
+                                            <div className="flex gap-1.5 shrink-0 flex-wrap sm:flex-nowrap">
+                                                {editingId !== img.id && (
+                                                    <button 
+                                                        onClick={() => startEdit(img)}
+                                                        className="px-3 py-2 bg-soosi-wood/10 text-soosi-wood rounded-xl hover:bg-soosi-wood/20 transition-all text-[11px] font-bold flex items-center gap-1.5 active:scale-95"
+                                                        title="編輯標題"
+                                                    >
+                                                        <Icon name="edit-2" size={13}/>
+                                                        <span className="hidden sm:inline">編輯</span>
+                                                    </button>
+                                                )}
                                                 <button 
-                                                    onClick={() => startEdit(img)}
-                                                    className="px-2.5 py-1.5 bg-soosi-wood/10 text-soosi-wood rounded-lg hover:bg-soosi-wood/20 transition-all text-[10px] font-bold flex items-center gap-1"
-                                                    title="編輯標題"
+                                                    onClick={() => handleToggleActive(img.id, img.is_active)}
+                                                    className={`px-3 py-2 rounded-xl transition-all text-[11px] font-bold flex items-center gap-1.5 active:scale-95 ${
+                                                        img.is_active 
+                                                            ? 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100' 
+                                                            : 'bg-green-50 text-green-600 hover:bg-green-100'
+                                                    }`}
+                                                    title={img.is_active ? '停用' : '啟用'}
                                                 >
-                                                    <Icon name="edit-2" size={12}/>
-                                                    編輯
+                                                    <Icon name={img.is_active ? "eye-off" : "eye"} size={13}/>
+                                                    <span className="hidden sm:inline">{img.is_active ? '停用' : '啟用'}</span>
                                                 </button>
-                                            )}
-                                            <button 
-                                                onClick={() => handleToggleActive(img.id, img.is_active)}
-                                                className={`px-2.5 py-1.5 rounded-lg transition-all text-[10px] font-bold flex items-center gap-1 ${
-                                                    img.is_active 
-                                                        ? 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100' 
-                                                        : 'bg-green-50 text-green-600 hover:bg-green-100'
-                                                }`}
-                                                title={img.is_active ? '停用' : '啟用'}
-                                            >
-                                                <Icon name={img.is_active ? "eye-off" : "eye"} size={12}/>
-                                                {img.is_active ? '停用' : '啟用'}
-                                            </button>
-                                            <button 
-                                                onClick={() => handleDelete(img.id)}
-                                                className="px-2.5 py-1.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition-all text-[10px] font-bold flex items-center gap-1"
-                                                title="刪除"
-                                            >
-                                                <Icon name="trash-2" size={12}/>
-                                                刪除
-                                            </button>
-                                        </div>
+                                                <button 
+                                                    onClick={() => handleDelete(img.id)}
+                                                    className="px-3 py-2 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-all text-[11px] font-bold flex items-center gap-1.5 active:scale-95"
+                                                    title="刪除"
+                                                >
+                                                    <Icon name="trash-2" size={13}/>
+                                                    <span className="hidden sm:inline">刪除</span>
+                                                </button>
+                                            </div>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -2695,13 +2901,31 @@ const CalendarView = ({ orders, onSelectOrder }) => {
                         </>
                     )}
                     
-                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 flex items-start gap-2">
-                        <Icon name="info" size={16} className="text-blue-500 mt-0.5 shrink-0"/>
-                        <div className="text-[11px] text-blue-700 font-medium leading-relaxed">
-                            <span className="font-bold">操作說明：</span>
-                            <span className="block mt-1">📌 拖曳圖片左側的 <Icon name="grip-vertical" size={12} className="inline"/> 手柄可調整排序</span>
-                            <span className="block">📌 點擊 <Icon name="eye" size={12} className="inline"/> 可切換啟用/停用狀態</span>
-                            <span className="block text-red-500 font-bold">📌 前台只會顯示「啟用中」的圖片，依排序由小到大排列</span>
+                    <div className="bg-gradient-to-r from-blue-50 to-blue-100/30 p-4 rounded-2xl border border-blue-100/50 shadow-sm">
+                        <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-500 shrink-0 mt-0.5">
+                                <Icon name="lightbulb" size={16}/>
+                            </div>
+                            <div className="text-[12px] text-blue-700 font-medium leading-relaxed">
+                                <span className="font-bold">操作小提示</span>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 mt-2">
+                                    <div className="flex items-center gap-1.5 bg-white/60 px-3 py-1.5 rounded-lg border border-blue-100/30">
+                                        <Icon name="grip-vertical" size={12} className="text-blue-400"/>
+                                        <span className="text-[11px] text-blue-600">拖曳手柄調整排序</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 bg-white/60 px-3 py-1.5 rounded-lg border border-blue-100/30">
+                                        <Icon name="eye" size={12} className="text-blue-400"/>
+                                        <span className="text-[11px] text-blue-600">點擊切換啟用/停用</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 bg-white/60 px-3 py-1.5 rounded-lg border border-blue-100/30">
+                                        <Icon name="trash-2" size={12} className="text-blue-400"/>
+                                        <span className="text-[11px] text-blue-600">點擊刪除圖片</span>
+                                    </div>
+                                </div>
+                                <div className="mt-2 text-[11px] text-red-500 font-bold bg-red-50/80 px-3 py-1.5 rounded-lg border border-red-100/50">
+                                    ⚠️ 前台只會顯示「啟用中」的圖片，依排序由小到大排列
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -3356,7 +3580,7 @@ const App = () => {
                     const registerSW = async () => {
                         try {
                             console.log('🔍 [SW] 開始註冊 Service Worker...');
-                            const registration = await navigator.serviceWorker.register('./sw-admin.js?v=27');
+                            const registration = await navigator.serviceWorker.register('./sw-admin.js?v=28');
                             console.log('✅ [SW] 註冊成功:', registration);
                             
                             const justUpdated = sessionStorage.getItem('sw_admin_just_updated') === 'true';

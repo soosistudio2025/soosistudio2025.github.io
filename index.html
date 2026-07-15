@@ -931,16 +931,39 @@ class ErrorBoundary extends React.Component {
                                 ✨ 其他費用項目
                                 </h4>
                                 {priceData.extras && priceData.extras
-                                    .filter(ex => activeTab === 'cat' ? !ex.forDogOnly : true)
-                                    .map((ex, i) => (
-                                    <div key={i} className="flex justify-between items-center py-3 border-b border-dashed border-gray-50 last:border-0">
-                                        <div>
-                                            <div className="font-bold text-soosi-dark text-sm">{ex.name}</div>
-                                            <div className="text-[10px] text-gray-400">{ex.desc}</div>
-                                        </div>
-                                        <div className="text-soosi-wood font-mono font-bold">{ex.price}</div>
-                                    </div>
-                                ))}
+                                    .filter(ex => {
+                                        // 檢查適用對象：支援新的 forDog/forCat 欄位，同時相容舊的 forDogOnly
+                                        const isForDog = ex.forDog !== undefined ? ex.forDog : ex.forDogOnly;
+                                        const isForCat = ex.forCat !== undefined ? ex.forCat : !ex.forDogOnly;
+                                        
+                                        if (activeTab === 'cat') {
+                                            return isForCat; // 貓咪分頁：只顯示 forCat === true 的項目
+                                        } else {
+                                            return isForDog; // 狗狗分頁：只顯示 forDog === true 的項目
+                                        }
+                                    })
+                                    .map((ex, i) => {
+                                        // 顯示適用對象標籤（可選）
+                                        const isForDog = ex.forDog !== undefined ? ex.forDog : ex.forDogOnly;
+                                        const isForCat = ex.forCat !== undefined ? ex.forCat : !ex.forDogOnly;
+                                        const tags = [];
+                                        if (isForDog) tags.push('🐶');
+                                        if (isForCat) tags.push('🐱');
+                                        const tagText = tags.length > 0 ? tags.join(' ') : '❓';
+                                        
+                                        return (
+                                            <div key={i} className="flex justify-between items-center py-3 border-b border-dashed border-gray-50 last:border-0">
+                                                <div>
+                                                    <div className="font-bold text-soosi-dark text-sm flex items-center gap-2">
+                                                        {ex.name}
+                                                        <span className="text-[9px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">{tagText}</span>
+                                                    </div>
+                                                    <div className="text-[10px] text-gray-400">{ex.desc}</div>
+                                                </div>
+                                                <div className="text-soosi-wood font-mono font-bold">{ex.price}</div>
+                                            </div>
+                                        );
+                                    })}
                             </div>
 
                             <div className="bg-yellow-50 text-yellow-800 p-4 rounded-2xl text-[11px] leading-relaxed border border-yellow-100">
@@ -1364,7 +1387,7 @@ const PillBtn = ({ active, onClick, children, className = "" }) => (
                     const registerSW = async () => {
                         try {
                             console.log('🔍 [SW] 開始註冊 Service Worker...');
-                            const registration = await navigator.serviceWorker.register('./sw.js?v=38');
+                            const registration = await navigator.serviceWorker.register('./sw.js?v=39');
                             console.log('✅ [SW] 註冊成功:', registration);
                             
                             const justUpdated = sessionStorage.getItem('sw_just_updated') === 'true';
