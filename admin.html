@@ -3574,28 +3574,46 @@ const App = () => {
                 supabaseClient.auth.onAuthStateChange((_event, session) => setSession(session));
             }, []);
 
-            // 🌟 新增：Service Worker 監聽邏輯 (Admin 版)
+            // 🌟 新增：Service Worker 監聽邏輯 (Admin 版) - 加入版本比對
             useEffect(() => {
                 if ('serviceWorker' in navigator) {
                     const registerSW = async () => {
                         try {
-                            console.log('🔍 [SW] 開始註冊 Service Worker...');
-                            const registration = await navigator.serviceWorker.register('./sw-admin.js?v=28');
-                            console.log('✅ [SW] 註冊成功:', registration);
-                            
+                            // 🌟 從 localStorage 讀取上次記錄的 SW 版本
+                            const lastSWVersion = localStorage.getItem('sw_admin_last_version');
+                            const currentSWVersion = 'v7'; // 與 sw-admin.js 中的 SW_VERSION 保持一致
+
+                            console.log(`🔍 [SW] 當前版本: ${currentSWVersion}, 上次版本: ${lastSWVersion || '無'}`);
+
+                            // 🌟 如果版本相同，且不是剛更新完，不要顯示更新提示
                             const justUpdated = sessionStorage.getItem('sw_admin_just_updated') === 'true';
                             if (justUpdated) {
                                 console.log('🔍 [SW] 剛更新完畢，略過提示');
                                 sessionStorage.removeItem('sw_admin_just_updated');
                                 setShowUpdate(false);
+                                // 更新 localStorage 中的版本記錄
+                                localStorage.setItem('sw_admin_last_version', currentSWVersion);
                                 return;
                             }
 
-                            console.log('🔍 [SW] registration.waiting:', registration.waiting);
+                            console.log('🔍 [SW] 開始註冊 Service Worker...');
+                            const registration = await navigator.serviceWorker.register('./sw-admin.js?v=29');
+                            console.log('✅ [SW] 註冊成功:', registration);
+
+                            // 🌟 版本相同且沒有 waiting worker，不顯示提示
+                            if (lastSWVersion === currentSWVersion && !registration.waiting) {
+                                console.log('🔍 [SW] 版本相同，無需更新');
+                                setShowUpdate(false);
+                                return;
+                            }
+
+                            // 🌟 只有當版本不同，或存在 waiting worker 時，才顯示提示
                             if (registration.waiting) {
-                                console.log('✅ [SW] 發現 waiting worker，顯示更新提示');
+                                console.log('✅ [SW] 發現 waiting worker，顯示更新提示 (版本: ' + currentSWVersion + ')');
                                 setWaitingWorker(registration.waiting);
                                 setShowUpdate(true);
+                                // 記錄新版本
+                                localStorage.setItem('sw_admin_last_version', currentSWVersion);
                             }
 
                             registration.addEventListener('updatefound', () => {
@@ -3604,9 +3622,16 @@ const App = () => {
                                 newWorker.addEventListener('statechange', () => {
                                     console.log('🔍 [SW] worker statechange:', newWorker.state);
                                     if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                        console.log('✅ [SW] 新 worker 已安裝，顯示更新提示');
-                                        setWaitingWorker(newWorker);
-                                        setShowUpdate(true);
+                                        // 🌟 只有當版本真的不同時才顯示提示
+                                        const storedVersion = localStorage.getItem('sw_admin_last_version');
+                                        if (storedVersion !== currentSWVersion) {
+                                            console.log('✅ [SW] 新 worker 已安裝 (版本變更)，顯示更新提示');
+                                            setWaitingWorker(newWorker);
+                                            setShowUpdate(true);
+                                            localStorage.setItem('sw_admin_last_version', currentSWVersion);
+                                        } else {
+                                            console.log('🔍 [SW] 版本未變，不顯示提示');
+                                        }
                                     }
                                 });
                             });
@@ -3614,9 +3639,15 @@ const App = () => {
                             // 檢查是否有正在等待的 worker
                             navigator.serviceWorker.getRegistration().then(reg => {
                                 if (reg && reg.waiting) {
-                                    console.log('✅ [SW] 從 getRegistration 發現 waiting worker');
-                                    setWaitingWorker(reg.waiting);
-                                    setShowUpdate(true);
+                                    const storedVersion = localStorage.getItem('sw_admin_last_version');
+                                    if (storedVersion !== currentSWVersion) {
+                                        console.log('✅ [SW] 從 getRegistration 發現 waiting worker (版本變更)');
+                                        setWaitingWorker(reg.waiting);
+                                        setShowUpdate(true);
+                                        localStorage.setItem('sw_admin_last_version', currentSWVersion);
+                                    } else {
+                                        console.log('🔍 [SW] waiting worker 存在但版本未變，不顯示提示');
+                                    }
                                 }
                             });
                         } catch (error) {
