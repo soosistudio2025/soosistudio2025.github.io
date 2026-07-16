@@ -103,7 +103,7 @@
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVocm5ndHNhc2h1bXZ3Z3phdW1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzMjMxNDUsImV4cCI6MjA4NDg5OTE0NX0.YDopNd9MHsjV9LFsHWyrxFIcWgQ_s0BMJlNSFqQfiTE';
         const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 
-        const ADMIN_EMAIL = "soosi.studio2025@gamil.com";
+        const ADMIN_EMAIL = "soosi.studio2025@gmail.com";
         const STAFF_EMAIL = "soosi.studio2025@staff.com";
 
         const Icon = ({ name, size = 18, className = "" }) => {
@@ -3615,7 +3615,7 @@ const App = () => {
                             }
 
                             console.log('🔍 [SW] 開始註冊 Service Worker...');
-                            const registration = await navigator.serviceWorker.register('./sw-admin.js?v=30');
+                            const registration = await navigator.serviceWorker.register('./sw-admin.js?v=31');
                             console.log('✅ [SW] 註冊成功:', registration);
 
                             // 🌟 版本相同且沒有 waiting worker，不顯示提示
