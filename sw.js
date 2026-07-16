@@ -1,4 +1,4 @@
-const CACHE_NAME = 'soosi-pet-v6'; // 更新版本號
+const CACHE_NAME = 'soosi-pet-v7'; // 更新版本號
 const ASSETS_TO_CACHE = [
   './index.html',
   './nav.png',
