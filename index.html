@@ -1397,7 +1397,7 @@ const PillBtn = ({ active, onClick, children, className = "" }) => (
                         try {
                             // 🌟 從 localStorage 讀取上次記錄的 SW 版本
                             const lastSWVersion = localStorage.getItem('sw_last_version');
-                            const currentSWVersion = 'v7'; // 與 sw.js 中的 CACHE_NAME 版本保持一致
+                            const currentSWVersion = 'v8'; // 與 sw.js 中的 CACHE_NAME 版本保持一致
 
                             console.log(`🔍 [SW] 當前版本: ${currentSWVersion}, 上次版本: ${lastSWVersion || '無'}`);
 
@@ -2113,7 +2113,8 @@ useEffect(() => {
                     grooming: false, 
                     boarding: false, 
                     highRiskGrooming: false, 
-                    highRiskBoarding: false 
+                    highRiskBoarding: false,
+                    catGrooming: false
                 });
     const [showDiscountModal, setShowDiscountModal] = useState(false);
         const [discountMessage, setDiscountMessage] = useState('');
@@ -2553,9 +2554,20 @@ const handleSwitchPet = (newIdx) => {
                         // 高風險住宿 (住宿 + 高風險必讀)
                         if (isBoarding && !termsRead.highRiskBoarding) return false;
                     }
+
+                    // 4. 貓咪美容條款：純美容模式下，只要有任一隻寵物是貓咪就必須閱讀
+                    const hasCatGrooming = (allPetsCurrentState || []).some(pet => 
+                        pet && pet.pet_type === 'cat' && (
+                            // 純美容模式：只要是貓咪就顯示
+                            !isBoarding ||
+                            // 住宿模式：貓咪有加購美容才顯示
+                            (isBoarding && pet.addGrooming)
+                        )
+                    );
+                    if (hasCatGrooming && !termsRead.catGrooming) return false;
                     
                     return true;
-                }, [isBoarding, isHighRisk, hasAnyGrooming, termsRead]);
+                }, [isBoarding, isHighRisk, hasAnyGrooming, termsRead, allPetsCurrentState]);
             
                 const handleChange = (field, value) => {
                     setFormData(prev => ({ ...prev, [field]: value }));
@@ -4713,6 +4725,26 @@ if (view === 'success') {
                                         </button>
                                     )}
 
+                                    {/* 2-1. 貓咪美容條款 (僅貓咪美容顯示) */}
+                                    {(allPetsCurrentState || []).some(pet => 
+                                        pet && pet.pet_type === 'cat' && (
+                                            !isBoarding ||
+                                            (isBoarding && pet.addGrooming)
+                                        )
+                                    ) && (
+                                        <button type="button" onClick={() => setActiveModal('catGrooming')} 
+                                            className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all animate-in fade-in ${termsRead.catGrooming ? 'bg-soosi-green/10 border-soosi-green' : 'bg-white border-soosi-green/30 hover:border-soosi-green'}`}>
+                                            <div className="flex items-center gap-3 text-left">
+                                                <div className={`p-2 rounded-lg ${termsRead.catGrooming ? 'bg-soosi-green text-white' : 'bg-[#E8F1EB] text-soosi-green'}`}><Icon name={termsRead.catGrooming ? "check" : "cat"} size={20}/></div>
+                                                <div>
+                                                    <div className={`font-bold text-sm text-soosi-dark`}>【貓咪美容預約規範】</div>
+                                                    {!termsRead.catGrooming && <div className="text-xs text-gray-400">點擊閱讀</div>}
+                                                </div>
+                                            </div>
+                                            <div className={`text-xs font-bold px-3 py-1 rounded-full ${termsRead.catGrooming ? 'bg-soosi-green text-white' : 'bg-gray-100 text-gray-400'}`}>{termsRead.catGrooming ? '已完成' : '待閱讀'}</div>
+                                        </button>
+                                    )}
+
                                     {/* 3. 高風險美容 (若符合風險，無論美容或住宿都顯示) */}
                                     {isHighRisk && (
                                         <button type="button" onClick={() => setActiveModal('highRiskGrooming')} 
@@ -5223,6 +5255,72 @@ if (view === 'success') {
                                 <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
                                     <span className="font-bold">法律效力確認：</span>
                                     倘若發生法律糾紛或訴訟，本切結書將作為雙方權利義務之重要依據，並呈交相關法律部門佐證。
+                                </div>
+                            </div>
+                        </TermsModal>
+
+                        {/* 5. 貓咪美容條款 Modal */}
+                        <TermsModal isOpen={activeModal === 'catGrooming'} onClose={()=>setActiveModal(null)} title="貓咪美容預約規範" onAgree={()=>setTermsRead(p=>({...p, catGrooming:true}))}>
+                            <div className="space-y-6 text-sm text-soosi-dark leading-relaxed">
+                                {/* Intro */}
+                                <div className="bg-soosi-green/10 p-4 rounded-xl border border-soosi-green/20">
+                                    <h4 className="font-black text-soosi-green mb-2 text-base">貓咪美容預約規範</h4>
+                                    <p className="text-xs font-bold text-soosi-dark/80">為維護服務品質與雙方權益，預約前請詳閱以下規範。當您完成預約，即視為已充分了解並同意遵守。</p>
+                                </div>
+
+                                {/* 一、預約方式 */}
+                                <div className="space-y-3">
+                                    <h5 className="font-black text-lg text-soosi-wood border-b-2 border-soosi-wood/10 pb-2">一、預約方式</h5>
+                                    <p>犬貓美容採預約制，預約成立後將會保留美容時段。</p>
+                                </div>
+
+                                {/* 二、取消／改期 */}
+                                <div className="space-y-3">
+                                    <h5 className="font-black text-lg text-soosi-wood border-b-2 border-soosi-wood/10 pb-2">二、取消／改期</h5>
+                                    <p>如需取消或更改預約，請於預約日前一天告知，以利安排其他客人的預約。</p>
+                                </div>
+
+                                {/* 三、預約未到 */}
+                                <div className="space-y-3">
+                                    <h5 className="font-black text-lg text-soosi-wood border-b-2 border-soosi-wood/10 pb-2">三、預約未到</h5>
+                                    <p>預約時間已到，若未到店、未事先取消，且電話及訊息皆無法聯繫，將視為「預約未到」。</p>
+                                </div>
+
+                                {/* 四、定金制度 */}
+                                <div className="space-y-3">
+                                    <h5 className="font-black text-lg text-soosi-wood border-b-2 border-soosi-wood/10 pb-2">四、定金制度</h5>
+                                    <ul className="list-disc pl-5 space-y-2">
+                                        <li>首次到店美容，或過去無預約未到紀錄者，免支付定金。</li>
+                                        <li>第一次預約未到後，日後再次預約須支付美容費用 <span className="font-bold text-soosi-red">50%</span> 作為定金，完成付款後才會保留預約時段。</li>
+                                        <li>如第二次再次發生預約未到，該筆定金將不予退還，並恕不再接受後續預約。</li>
+                                    </ul>
+                                </div>
+
+                                {/* 五、定金規則 */}
+                                <div className="space-y-3">
+                                    <h5 className="font-black text-lg text-soosi-wood border-b-2 border-soosi-wood/10 pb-2">五、定金規則</h5>
+                                    <ul className="list-disc pl-5 space-y-2">
+                                        <li>定金為預約保留費用，金額為該次美容費用的 <span className="font-bold">50%</span>。</li>
+                                        <li>若於預約日前一天以上完成取消，定金可辦理退還，惟將扣除相關支付／退款手續費。</li>
+                                        <li>若未於預約日前一天取消，或預約當日未到店，定金恕不退還。</li>
+                                        <li>完成美容服務後，定金可折抵當次美容費用。</li>
+                                    </ul>
+                                </div>
+
+                                {/* 六、遲到 */}
+                                <div className="space-y-3">
+                                    <h5 className="font-black text-lg text-soosi-wood border-b-2 border-soosi-wood/10 pb-2">六、遲到</h5>
+                                    <p>請依預約時間準時抵達。若遲到時間超過 <span className="font-bold text-soosi-red">10 分鐘</span>，為避免影響後續預約，本工作室將視現場情況調整服務內容或安排改期。</p>
+                                </div>
+
+                                {/* 七、特殊狀況 */}
+                                <div className="space-y-3">
+                                    <h5 className="font-black text-lg text-soosi-wood border-b-2 border-soosi-wood/10 pb-2">七、特殊狀況</h5>
+                                    <p>如遇臨時或突發狀況無法依約前來，請務必提前聯繫告知，我們會視實際情況協助處理。</p>
+                                </div>
+
+                                <div className="text-center text-xs text-soosi-wood/40 mt-6 font-bold tracking-widest">
+                                    --- 閱讀完畢請向下滑動以解鎖同意按鈕 ---
                                 </div>
                             </div>
                         </TermsModal>
